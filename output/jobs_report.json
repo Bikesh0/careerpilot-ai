@@ -8,7 +8,12 @@
             "description": "Monitor SIEM alerts, investigate security incidents, Linux networking",
             "source": "Demo"
         },
-        "match_score": 30
+        "match_score": 58,
+        "matched_skills": [
+            "Linux",
+            "Networking",
+            "SIEM"
+        ]
     },
     {
         "job": {
@@ -19,7 +24,12 @@
             "description": "Linux servers, cloud infrastructure, Docker and troubleshooting",
             "source": "Demo"
         },
-        "match_score": 30
+        "match_score": 58,
+        "matched_skills": [
+            "Linux",
+            "Cloud",
+            "Docker"
+        ]
     },
     {
         "job": {
@@ -30,6 +40,7 @@
             "description": "React Javascript UI development",
             "source": "Demo"
         },
-        "match_score": 0
+        "match_score": 36,
+        "matched_skills": []
     }
 ]

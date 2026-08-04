@@ -34,9 +34,10 @@ def save_report(data):
         )
 
 
+
 def main():
 
-    print("\n🚀 CareerPilot AI v0.1\n")
+    print("\n🚀 CareerPilot AI v0.2\n")
 
     profile = load_profile()
 
@@ -56,11 +57,21 @@ def main():
 
     for item in ranked:
 
+        print("\n---------------------")
+
         print(
-            item["job"]["title"],
-            "=>",
+            item["job"]["title"]
+        )
+
+        print(
+            "Match:",
             item["match_score"],
             "%"
+        )
+
+        print(
+            "Skills:",
+            item["matched_skills"]
         )
 
 

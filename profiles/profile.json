@@ -1,11 +1,24 @@
 {
   "name": "Bikesh Shrestha",
+
+  "education": [
+    "Master Cyber Security",
+    "Bachelor Degree"
+  ],
+
+  "experience": [
+    "Cybersecurity Trainee",
+    "Helpdesk Trainee",
+    "Network Security Projects"
+  ],
+
   "target_roles": [
     "SOC Analyst",
     "Cybersecurity Analyst",
     "Security Engineer",
     "Cloud Support Engineer"
   ],
+
   "skills": [
     "Linux",
     "Networking",
@@ -18,7 +31,11 @@
     "Docker",
     "Git",
     "Kubernetes",
-    "Web Security"
+    "Web Security",
+    "Firewall",
+    "IDS",
+    "IPS"
   ],
+
   "location": "Helsinki Finland"
 }
