@@ -3,6 +3,7 @@ import os
 
 from app.search.manager import SearchManager
 from app.ai.matcher import JobMatcher
+from app.ai.analyzer import JobAnalyzer
 
 
 def load_profile():
@@ -37,49 +38,100 @@ def save_report(data):
 
 def main():
 
-    print("\n🚀 CareerPilot AI v0.2\n")
+    print("\n🚀 CareerPilot AI v0.3\n")
 
+
+    # Load user profile
     profile = load_profile()
 
+
+    # Initialize components
     search = SearchManager()
 
     matcher = JobMatcher()
 
+    analyzer = JobAnalyzer()
 
+
+
+    # Find jobs
     jobs = search.search_jobs()
 
 
+
+    # Match jobs
     ranked = matcher.rank_jobs(
         jobs,
         profile
     )
 
 
+
+    # AI analysis layer
+    analysis_results = []
+
+
     for item in ranked:
 
-        print("\n---------------------")
+        result = analyzer.analyze(
+            item["job"],
+            profile,
+            item["match_score"]
+        )
+
+        analysis_results.append(result)
+
+
+
+    # Display results
+
+    for result in analysis_results:
+
+        print("---------------------")
 
         print(
-            item["job"]["title"]
+            "Job:",
+            result["job_title"]
+        )
+
+        print(
+            "Company:",
+            result["company"]
         )
 
         print(
             "Match:",
-            item["match_score"],
+            result["match_score"],
             "%"
         )
 
         print(
-            "Skills:",
-            item["matched_skills"]
+            "Strengths:",
+            result["strengths"]
         )
 
+        print(
+            "Missing skills:",
+            result["missing_skills"]
+        )
 
-    save_report(ranked)
+        print(
+            "Recommendation:",
+            result["recommendation"]
+        )
+
+        print()
+
+
+
+    # Save final report
+    save_report(
+        analysis_results
+    )
 
 
     print(
-        "\n✅ Report saved: output/jobs_report.json"
+        "✅ Report saved: output/jobs_report.json"
     )
 
 
