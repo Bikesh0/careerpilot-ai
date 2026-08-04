@@ -1,0 +1,35 @@
+[
+    {
+        "job": {
+            "title": "Junior SOC Analyst",
+            "company": "Security Finland",
+            "location": "Helsinki",
+            "url": "https://example.com",
+            "description": "Monitor SIEM alerts, investigate security incidents, Linux networking",
+            "source": "Demo"
+        },
+        "match_score": 30
+    },
+    {
+        "job": {
+            "title": "Cloud Support Engineer",
+            "company": "Cloud Nordic",
+            "location": "Espoo",
+            "url": "https://example.com",
+            "description": "Linux servers, cloud infrastructure, Docker and troubleshooting",
+            "source": "Demo"
+        },
+        "match_score": 30
+    },
+    {
+        "job": {
+            "title": "Frontend Developer",
+            "company": "Web Company",
+            "location": "Helsinki",
+            "url": "https://example.com",
+            "description": "React Javascript UI development",
+            "source": "Demo"
+        },
+        "match_score": 0
+    }
+]

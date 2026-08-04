@@ -1,0 +1,24 @@
+{
+  "name": "Bikesh Shrestha",
+  "target_roles": [
+    "SOC Analyst",
+    "Cybersecurity Analyst",
+    "Security Engineer",
+    "Cloud Support Engineer"
+  ],
+  "skills": [
+    "Linux",
+    "Networking",
+    "TCP/IP",
+    "Python",
+    "Cyber Security",
+    "SIEM",
+    "Splunk",
+    "Cloud",
+    "Docker",
+    "Git",
+    "Kubernetes",
+    "Web Security"
+  ],
+  "location": "Helsinki Finland"
+}
