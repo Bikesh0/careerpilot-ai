@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 
 
-class JobProvider(ABC):
+class JobSource(ABC):
+
 
     @abstractmethod
-    def fetch_jobs(self):
+    def search(self):
+
         pass

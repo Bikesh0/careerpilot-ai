@@ -1,0 +1,27 @@
+{
+    "priority_roles": [
+        "Junior SOC Analyst",
+        "SOC Analyst",
+        "Security Analyst",
+        "Cybersecurity Analyst",
+        "Cloud Security Engineer",
+        "Information Security Specialist"
+    ],
+
+    "career_bridge_roles": [
+        "Cloud Support Engineer",
+        "DevOps Engineer",
+        "Linux Administrator",
+        "System Administrator",
+        "Infrastructure Engineer",
+        "Network Engineer"
+    ],
+
+    "ignore_roles": [
+        "Sales",
+        "Marketing",
+        "Designer",
+        "HR",
+        "Finance"
+    ]
+}

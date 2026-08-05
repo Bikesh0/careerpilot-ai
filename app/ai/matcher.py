@@ -1,118 +1,140 @@
+from app.ai.skill_map import SKILL_MAP
+
+
 class JobMatcher:
 
+    SECURITY_KEYWORDS = {
+        "security": 10,
+        "cyber": 10,
+        "soc": 9,
+        "siem": 9,
+        "splunk": 8,
+        "sentinel": 8,
+        "incident": 8,
+        "threat": 8,
+        "firewall": 7,
+        "ids": 7,
+        "ips": 7,
+        "iam": 7,
+        "identity": 7,
+        "cloud": 6,
+        "linux": 6,
+        "docker": 5,
+        "kubernetes": 5,
+        "python": 5,
+        "network": 6,
+        "tcp/ip": 6,
+        "azure": 6,
+        "aws": 6
+    }
+
+    LOCATION_BONUS = {
+        "helsinki": 10,
+        "espoo": 10,
+        "vantaa": 9,
+        "tampere": 8,
+        "finland": 7,
+        "remote": 6
+    }
+
+    def get_text(self, job):
+
+        return (
+            f"{job.title} "
+            f"{job.description}"
+        ).lower()
 
     def skill_score(self, job, profile):
 
-        text = job.description.lower()
+        text = self.get_text(job)
 
+        score = 0
         matched = []
 
         for skill in profile["skills"]:
 
-            if skill.lower() in text:
-                matched.append(skill)
+            skill_lower = skill.lower()
 
+            aliases = SKILL_MAP.get(
+                skill_lower,
+                [skill_lower]
+            )
 
-        score = 0
+            found = False
 
-        if profile["skills"]:
-            score = (
-                len(matched)
-                /
-                len(profile["skills"])
-            ) * 100
+            for alias in aliases:
 
+                if alias in text:
 
-        return round(score), matched
+                    score += 10
 
+                    matched.append(skill)
 
+                    found = True
 
-    def role_score(self, job, profile):
+                    break
 
-        title = job.title.lower()
+            if found:
+                continue
 
-        for role in profile["target_roles"]:
+        return min(score, 100), matched
 
-            if role.lower() in title:
-                return 100
+    def security_bonus(self, job):
 
-        return 40
+        text = self.get_text(job)
 
+        bonus = 0
 
+        for keyword, value in self.SECURITY_KEYWORDS.items():
 
-    def education_score(self, profile):
+            if keyword in text:
+                bonus += value
 
-        if len(profile["education"]) > 0:
-            return 100
+        return min(bonus, 100)
+
+    def location_bonus(self, job):
+
+        location = job.location.lower()
+
+        for city, value in self.LOCATION_BONUS.items():
+
+            if city in location:
+                return value
 
         return 0
 
-
-
-    def location_score(self, job, profile):
-
-        if profile["location"].lower() in job.location.lower():
-            return 100
-
-        return 50
-
-
-
     def rank_jobs(self, jobs, profile):
 
-        results = []
-
+        ranked = []
 
         for job in jobs:
 
-            skills, matched = self.skill_score(
+            skill, matched = self.skill_score(
                 job,
                 profile
             )
 
-            role = self.role_score(
-                job,
-                profile
+            security = self.security_bonus(job)
+
+            location = self.location_bonus(job)
+
+            final = round(
+                skill * 0.70 +
+                security * 0.20 +
+                location * 0.10
             )
 
-            education = self.education_score(
-                profile
+            ranked.append(
+                {
+                    "job": job,
+                    "match_score": min(final, 100),
+                    "matched_skills": matched
+                }
             )
 
-            location = self.location_score(
-                job,
-                profile
-            )
-
-
-            final_score = round(
-
-                skills * 0.40 +
-
-                role * 0.25 +
-
-                education * 0.10 +
-
-                location * 0.10 +
-
-                70 * 0.15
-
-            )
-
-
-            results.append({
-
-                "job": job.to_dict(),
-
-                "match_score": final_score,
-
-                "matched_skills": matched
-
-            })
-
-
-        return sorted(
-            results,
-            key=lambda x:x["match_score"],
+        ranked.sort(
+            key=lambda x: x["match_score"],
             reverse=True
         )
+
+        return ranked

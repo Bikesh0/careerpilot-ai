@@ -1,8 +1,12 @@
 {
   "name": "Bikesh Shrestha",
+  "email": "your_email@example.com",
+  "phone": "+358xxxxxxxxx",
+  "linkedin": "https://linkedin.com/in/shrbikesh",
+  "location": "Helsinki, Finland",
 
   "education": [
-    "Master Cyber Security",
+    "Master of Science in Cyber Security",
     "Bachelor Degree"
   ],
 
@@ -35,7 +39,5 @@
     "Firewall",
     "IDS",
     "IPS"
-  ],
-
-  "location": "Helsinki Finland"
+  ]
 }
