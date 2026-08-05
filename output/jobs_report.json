@@ -15,7 +15,8 @@
             "Splunk",
             "Cloud"
         ],
-        "recommendation": "Low match - Improve skills first"
+        "recommendation": "Low match - Improve skills first",
+        "ai_analysis": "Based on the provided information, I would analyze the candidate's match score as follows:\n\nThe candidate matches moderately well (58%) with the Junior SOC Analyst role at Security Finland due to their relevant technical skills in Linux, networking, SIEM, and security incident investigation. Their experience in monitoring SIEM alerts and investigating security incidents also aligns with the job description. To increase their chances of success, they should highlight their strengths in Linux networking, SIEM, and security incident response. However, I would recommend that they improve their skills in web security, Kubernetes, and Docker to match more closely with the target roles. Given their calculated match score, I would advise them to apply for this role while also considering additional training or certifications to enhance their candidacy.\n\nAdditional suggestions:\n\n* Emphasize their experience with Linux networking and SIEM systems\n* Highlight any relevant projects or internships that demonstrate their security incident response skills\n* Consider taking online courses or certifications in web security, Kubernetes, and Docker to fill the gaps in their skillset."
     },
     {
         "job_title": "Cloud Support Engineer",
@@ -33,7 +34,8 @@
             "Cyber Security",
             "SIEM"
         ],
-        "recommendation": "Low match - Improve skills first"
+        "recommendation": "Low match - Improve skills first",
+        "ai_analysis": "Based on the provided profile, I analyze that the candidate is a strong match for the Cloud Support Engineer role at Cloud Nordic due to their solid technical foundation in Linux, Networking, and Cloud infrastructure. To stand out, the candidate should highlight their hands-on experience with Docker and troubleshooting skills, as well as any relevant certifications or training programs in cloud security.\n\nTo improve their chances of success, I recommend that the candidate focus on developing skills in areas such as:\n\n* Advanced cloud security concepts (e.g., AWS or Azure specific)\n* Automation tools like Ansible or Terraform\n* Container orchestration with Kubernetes\n\nGiven their strengths and calculated match score of 58%, I advise the candidate to apply for the role, tailoring their resume and cover letter to showcase relevant skills and experiences. This will enable them to compete effectively in the hiring process."
     },
     {
         "job_title": "Frontend Developer",
@@ -47,6 +49,7 @@
             "Python",
             "Cyber Security"
         ],
-        "recommendation": "Low match - Improve skills first"
+        "recommendation": "Low match - Improve skills first",
+        "ai_analysis": "**Analysis:**\n\nThe candidate's cybersecurity education and skillset provide a solid foundation for transitioning into various security roles. Their proficiency in Linux, networking, and security tools such as SIEM, Splunk, and IDS/IPS are particularly relevant to SOC Analyst and Cybersecurity Analyst positions. However, their experience as a Frontend Developer is not directly applicable to these target roles, but highlights transferable skills in programming languages (Python) and toolsets (Docker, Kubernetes). To increase their match score, the candidate should emphasize their security skills and education, while also highlighting any relevant web development or programming experience that can be applied to security roles.\n\n**Recommendations:**\n\n* Strengths to highlight:\n\t+ Cybersecurity education\n\t+ Proficiency in Linux, networking, and security tools (SIEM, Splunk, IDS/IPS)\n\t+ Programming skills in Python\n* Missing skills to improve:\n\t+ Relevant web development or programming experience for security roles\n\t+ Familiarity with specific cloud providers (e.g. AWS, Azure) if targeting Cloud Support Engineer role\n* Whether they should apply: Yes, as their calculated match score is 36%, indicating some relevance to the target roles. Emphasizing their transferable skills and education can help increase their chances of success in these positions."
     }
 ]

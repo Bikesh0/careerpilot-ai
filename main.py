@@ -15,7 +15,6 @@ def load_profile():
         return json.load(file)
 
 
-
 def save_report(data):
 
     os.makedirs(
@@ -35,15 +34,12 @@ def save_report(data):
         )
 
 
-
 def main():
 
-    print("\n🚀 CareerPilot AI v0.3\n")
+    print("\n🚀 CareerPilot AI v0.4\n")
 
-
-    # Load user profile
+    # Load profile
     profile = load_profile()
-
 
     # Initialize components
     search = SearchManager()
@@ -52,24 +48,17 @@ def main():
 
     analyzer = JobAnalyzer()
 
-
-
-    # Find jobs
+    # Search jobs
     jobs = search.search_jobs()
 
-
-
-    # Match jobs
+    # Rank jobs
     ranked = matcher.rank_jobs(
         jobs,
         profile
     )
 
-
-
-    # AI analysis layer
+    # AI Analysis
     analysis_results = []
-
 
     for item in ranked:
 
@@ -81,13 +70,15 @@ def main():
 
         analysis_results.append(result)
 
-
-
     # Display results
+
+    print("\n==============================")
+    print("CareerPilot Results")
+    print("==============================\n")
 
     for result in analysis_results:
 
-        print("---------------------")
+        print("----------------------------------------")
 
         print(
             "Job:",
@@ -100,19 +91,18 @@ def main():
         )
 
         print(
-            "Match:",
-            result["match_score"],
-            "%"
+            "Match Score:",
+            str(result["match_score"]) + "%"
         )
 
         print(
             "Strengths:",
-            result["strengths"]
+            ", ".join(result["strengths"])
         )
 
         print(
-            "Missing skills:",
-            result["missing_skills"]
+            "Missing Skills:",
+            ", ".join(result["missing_skills"])
         )
 
         print(
@@ -122,18 +112,23 @@ def main():
 
         print()
 
+        print("AI Analysis:")
 
+        print(
+            result["ai_analysis"]
+        )
 
-    # Save final report
+        print()
+
+    # Save report
+
     save_report(
         analysis_results
     )
 
-
     print(
         "✅ Report saved: output/jobs_report.json"
     )
-
 
 
 if __name__ == "__main__":
