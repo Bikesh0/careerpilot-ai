@@ -1,46 +1,52 @@
 [
     {
-        "job": {
-            "title": "Junior SOC Analyst",
-            "company": "Security Finland",
-            "location": "Helsinki",
-            "url": "https://example.com",
-            "description": "Monitor SIEM alerts, investigate security incidents, Linux networking",
-            "source": "Demo"
-        },
+        "job_title": "Junior SOC Analyst",
+        "company": "Security Finland",
         "match_score": 58,
-        "matched_skills": [
+        "strengths": [
             "Linux",
             "Networking",
             "SIEM"
-        ]
+        ],
+        "missing_skills": [
+            "TCP/IP",
+            "Python",
+            "Cyber Security",
+            "Splunk",
+            "Cloud"
+        ],
+        "recommendation": "Low match - Improve skills first"
     },
     {
-        "job": {
-            "title": "Cloud Support Engineer",
-            "company": "Cloud Nordic",
-            "location": "Espoo",
-            "url": "https://example.com",
-            "description": "Linux servers, cloud infrastructure, Docker and troubleshooting",
-            "source": "Demo"
-        },
+        "job_title": "Cloud Support Engineer",
+        "company": "Cloud Nordic",
         "match_score": 58,
-        "matched_skills": [
+        "strengths": [
             "Linux",
             "Cloud",
             "Docker"
-        ]
+        ],
+        "missing_skills": [
+            "Networking",
+            "TCP/IP",
+            "Python",
+            "Cyber Security",
+            "SIEM"
+        ],
+        "recommendation": "Low match - Improve skills first"
     },
     {
-        "job": {
-            "title": "Frontend Developer",
-            "company": "Web Company",
-            "location": "Helsinki",
-            "url": "https://example.com",
-            "description": "React Javascript UI development",
-            "source": "Demo"
-        },
+        "job_title": "Frontend Developer",
+        "company": "Web Company",
         "match_score": 36,
-        "matched_skills": []
+        "strengths": [],
+        "missing_skills": [
+            "Linux",
+            "Networking",
+            "TCP/IP",
+            "Python",
+            "Cyber Security"
+        ],
+        "recommendation": "Low match - Improve skills first"
     }
 ]
