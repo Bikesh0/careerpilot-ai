@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from app.database.models import Application
+
 
 
 class ApplicationTracker:
