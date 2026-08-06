@@ -71,6 +71,38 @@ def search():
         "dashboard.html",
         jobs=ranked
     )
+@web.route("/coverletter/<int:job_id>")
+def coverletter(job_id):
+
+    manager = SearchManager()
+
+    job = manager.get_job(job_id)
+
+    if job is None:
+
+        return "Job not found."
+
+    profile = ProfileService()
+
+    cv = profile.get_master_cv()
+
+    service = DocumentService()
+
+    filename = service.generate_cover_letter(
+
+        cv,
+
+        job
+
+    )
+
+    return send_file(
+
+        filename,
+
+        as_attachment=True
+
+    )
 
 
 @web.route("/resume/<int:job_id>")

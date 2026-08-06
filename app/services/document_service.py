@@ -2,7 +2,8 @@ from app.parsers.cv_parser import CVParser
 from app.ai.profile_extractor import ProfileExtractor
 from app.ai.resume_builder import ResumeBuilder
 from app.ai.resume_generator import ResumeGenerator
-
+from app.ai.cover_letter_builder import CoverLetterBuilder
+from app.ai.cover_letter_generator import CoverLetterGenerator
 
 class DocumentService:
 
