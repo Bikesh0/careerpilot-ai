@@ -1,0 +1,53 @@
+body{
+    background:#f4f7fb;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+.sidebar{
+    background:#1d3557;
+    min-height:100vh;
+    color:white;
+}
+
+.sidebar h3{
+    padding:20px;
+}
+
+.sidebar a{
+    display:block;
+    color:white;
+    text-decoration:none;
+    padding:15px 20px;
+}
+
+.sidebar a:hover{
+    background:#274c77;
+}
+
+.top-card{
+    border:none;
+    border-radius:12px;
+    box-shadow:0 4px 15px rgba(0,0,0,.08);
+}
+
+.job-card{
+    border-radius:12px;
+    margin-bottom:20px;
+    box-shadow:0 4px 15px rgba(0,0,0,.08);
+}
+
+.score{
+    font-size:28px;
+    font-weight:bold;
+    color:#198754;
+}
+
+.skill{
+    display:inline-block;
+    padding:5px 10px;
+    margin:3px;
+    border-radius:20px;
+    background:#0d6efd;
+    color:white;
+    font-size:12px;
+}
