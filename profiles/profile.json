@@ -1,43 +1,29 @@
 {
-  "name": "Bikesh Shrestha",
-  "email": "your_email@example.com",
-  "phone": "+358xxxxxxxxx",
-  "linkedin": "https://linkedin.com/in/shrbikesh",
-  "location": "Helsinki, Finland",
+    "name":"Bikesh Shrestha",
 
-  "education": [
-    "Master of Science in Cyber Security",
-    "Bachelor Degree"
-  ],
+    "summary":"Cyber Security professional with a Master's Degree in Cyber Security and experience in networking, Linux administration, penetration testing and cloud technologies.",
 
-  "experience": [
-    "Cybersecurity Trainee",
-    "Helpdesk Trainee",
-    "Network Security Projects"
-  ],
+    "skills":[
 
-  "target_roles": [
-    "SOC Analyst",
-    "Cybersecurity Analyst",
-    "Security Engineer",
-    "Cloud Support Engineer"
-  ],
+        "Python",
 
-  "skills": [
-    "Linux",
-    "Networking",
-    "TCP/IP",
-    "Python",
-    "Cyber Security",
-    "SIEM",
-    "Splunk",
-    "Cloud",
-    "Docker",
-    "Git",
-    "Kubernetes",
-    "Web Security",
-    "Firewall",
-    "IDS",
-    "IPS"
-  ]
+        "Linux",
+
+        "Cyber Security",
+
+        "Networking",
+
+        "Docker",
+
+        "Azure",
+
+        "Splunk",
+
+        "AWS",
+
+        "Incident Response",
+
+        "SIEM"
+
+    ]
 }

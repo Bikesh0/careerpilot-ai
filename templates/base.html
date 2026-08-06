@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>CareerPilot AI</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+<div class="container-fluid">
+
+<div class="row">
+
+<div class="col-md-2 sidebar">
+
+<h3>CareerPilot</h3>
+
+<hr>
+
+<a href="/">🏠 Dashboard</a>
+
+<a href="/search">🔍 Search Jobs</a>
+
+<a href="/applications">📄 Applications</a>
+
+<a href="/resume">📄 Resume</a>
+
+<a href="/coverletter">✉ Cover Letter</a>
+
+<a href="/interview">🎤 Interview AI</a>
+
+<a href="/settings">⚙ Settings</a>
+
+</div>
+
+<div class="col-md-10 p-4">
+
+{% block content %}
+
+{% endblock %}
+
+</div>
+
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>

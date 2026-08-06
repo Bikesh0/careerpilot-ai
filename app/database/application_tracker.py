@@ -1,131 +1,143 @@
-from datetime import datetime
-
-from app.database.database import get_connection
-
+import sqlite3
 
 
 class ApplicationTracker:
 
+    def __init__(self):
 
+        self.conn = sqlite3.connect(
+            "data/careerpilot.db",
+            check_same_thread=False
+        )
 
-    def save_job(
-        self,
-        job
-    ):
+        self.cursor = self.conn.cursor()
 
-        conn = get_connection()
+        self.cursor.execute("""
 
-        cursor = conn.cursor()
+        CREATE TABLE IF NOT EXISTS applications(
 
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        cursor.execute(
-            """
-            INSERT INTO applications
-            (
-                title,
-                company,
-                url,
-                status,
-                created
-            )
+            title TEXT,
 
-            VALUES (?, ?, ?, ?, ?)
+            company TEXT,
 
-            """,
+            location TEXT,
 
-            (
+            source TEXT,
 
-                job.get(
-                    "title",
-                    ""
-                ),
-
-                job.get(
-                    "company",
-                    ""
-                ),
-
-                job.get(
-                    "url",
-                    ""
-                ),
-
-                "Saved",
-
-                datetime.now().strftime(
-                    "%Y-%m-%d"
-                )
-
-            )
+            status TEXT DEFAULT 'Saved'
 
         )
 
+        """)
 
-        conn.commit()
-
-        conn.close()
-
+        self.conn.commit()
 
 
-    def update_status(
+    def add_application(
         self,
         title,
-        status
+        company,
+        location,
+        source
     ):
 
+        self.cursor.execute("""
 
-        conn = get_connection()
+        SELECT id
 
-        cursor = conn.cursor()
+        FROM applications
 
+        WHERE
 
-        cursor.execute(
-            """
-            UPDATE applications
+        title=?
 
-            SET status = ?
+        AND
 
-            WHERE title = ?
+        company=?
 
-            """,
+        """,
 
-            (
+        (
 
-                status,
+            title,
 
-                title
-
-            )
+            company
 
         )
 
-
-        conn.commit()
-
-        conn.close()
-
-
-
-    def get_all(self):
-
-        conn = get_connection()
-
-        cursor = conn.cursor()
-
-
-        cursor.execute(
-            """
-            SELECT *
-            FROM applications
-            ORDER BY id DESC
-            """
         )
 
+        if self.cursor.fetchone():
 
-        results = cursor.fetchall()
-
-
-        conn.close()
+            return False
 
 
-        return results
+        self.cursor.execute("""
+
+        INSERT INTO applications(
+
+            title,
+
+            company,
+
+            location,
+
+            source
+
+        )
+
+        VALUES(
+
+            ?,?,?,?
+
+        )
+
+        """,
+
+        (
+
+            title,
+
+            company,
+
+            location,
+
+            source
+
+        )
+
+        )
+
+        self.conn.commit()
+
+        return True
+
+
+    def all(self):
+
+        self.cursor.execute("""
+
+        SELECT *
+
+        FROM applications
+
+        ORDER BY id DESC
+
+        """)
+
+        return self.cursor.fetchall()
+
+
+    def total(self):
+
+        self.cursor.execute("""
+
+        SELECT COUNT(*)
+
+        FROM applications
+
+        """)
+
+        return self.cursor.fetchone()[0]

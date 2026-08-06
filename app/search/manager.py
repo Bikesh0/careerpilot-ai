@@ -17,6 +17,9 @@ class SearchManager:
 
         ]
 
+        # Stores the latest search results
+        self.latest_jobs = []
+
     def search_jobs(self):
 
         jobs = []
@@ -48,6 +51,9 @@ class SearchManager:
 
                     seen.add(key)
 
+                    # Give every job a unique ID
+                    job.id = len(jobs)
+
                     jobs.append(job)
 
             except Exception as e:
@@ -60,6 +66,22 @@ class SearchManager:
 
                 )
 
+        # Save latest jobs in memory
+        self.latest_jobs = jobs
+
         print(f"Collected {len(jobs)} unique jobs")
 
         return jobs
+
+    def get_job(self, job_id):
+
+        if not self.latest_jobs:
+            return None
+
+        if job_id < 0:
+            return None
+
+        if job_id >= len(self.latest_jobs):
+            return None
+
+        return self.latest_jobs[job_id]
