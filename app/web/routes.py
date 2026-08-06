@@ -11,6 +11,7 @@ from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
 from app.ai.resume_generator import ResumeGenerator
 from app.services.application_service import ApplicationService
+from app.services.application_service import ApplicationService
 
 web = Blueprint("web", __name__)
 
@@ -36,6 +37,23 @@ def dashboard():
         stats=stats
 
     )
+@web.route("/status/<int:app_id>/<status>")
+def update_status(app_id, status):
+
+    service = ApplicationService()
+
+    service.update_status(app_id, status)
+
+    return redirect("/applications")
+
+@web.route("/delete/<int:app_id>")
+def delete_application(app_id):
+
+    service = ApplicationService()
+
+    service.delete(app_id)
+
+    return redirect("/applications")
 
 @web.route("/save/<int:job_id>")
 def save_job(job_id):

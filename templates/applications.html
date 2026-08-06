@@ -2,9 +2,9 @@
 
 {% block content %}
 
-<h2>Applications</h2>
+<h2 class="mb-4">Application Tracker</h2>
 
-<table class="table table-striped">
+<table class="table table-hover">
 
 <thead>
 
@@ -17,6 +17,8 @@
 <th>Status</th>
 
 <th>Date</th>
+
+<th>Actions</th>
 
 </tr>
 
@@ -32,9 +34,73 @@
 
 <td>{{ app[2] }}</td>
 
-<td>{{ app[5] }}</td>
+<td>
+
+<span class="badge bg-primary">
+
+{{ app[5] }}
+
+</span>
+
+</td>
 
 <td>{{ app[6] }}</td>
+
+<td>
+
+<div class="btn-group">
+
+<a
+class="btn btn-outline-primary btn-sm"
+href="/status/{{ app[0] }}/Saved">
+
+Saved
+
+</a>
+
+<a
+class="btn btn-outline-success btn-sm"
+href="/status/{{ app[0] }}/Applied">
+
+Applied
+
+</a>
+
+<a
+class="btn btn-outline-warning btn-sm"
+href="/status/{{ app[0] }}/Interview">
+
+Interview
+
+</a>
+
+<a
+class="btn btn-outline-info btn-sm"
+href="/status/{{ app[0] }}/Offer">
+
+Offer
+
+</a>
+
+<a
+class="btn btn-outline-danger btn-sm"
+href="/status/{{ app[0] }}/Rejected">
+
+Reject
+
+</a>
+
+<a
+class="btn btn-danger btn-sm"
+href="/delete/{{ app[0] }}">
+
+🗑
+
+</a>
+
+</div>
+
+</td>
 
 </tr>
 
