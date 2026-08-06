@@ -1,21 +1,25 @@
-class JobRecord:
+from dataclasses import dataclass
 
 
-    def __init__(
-        self,
-        title,
-        company,
-        location,
-        description,
-        source,
-        match_score,
-        decision
-    ):
+@dataclass
+class Application:
 
-        self.title = title
-        self.company = company
-        self.location = location
-        self.description = description
-        self.source = source
-        self.match_score = match_score
-        self.decision = decision
+    id: int | None = None
+
+    company: str = ""
+
+    title: str = ""
+
+    location: str = ""
+
+    source: str = ""
+
+    status: str = "Saved"
+
+    applied_date: str = ""
+
+    resume_file: str = ""
+
+    cover_letter_file: str = ""
+
+    notes: str = ""

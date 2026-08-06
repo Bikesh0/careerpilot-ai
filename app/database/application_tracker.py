@@ -1,123 +1,107 @@
 import sqlite3
+from pathlib import Path
+
+from app.database.models import Application
 
 
 class ApplicationTracker:
 
     def __init__(self):
 
-        self.conn = sqlite3.connect(
+        Path("data").mkdir(exist_ok=True)
+
+        self.db = sqlite3.connect(
             "data/careerpilot.db",
             check_same_thread=False
         )
 
-        self.cursor = self.conn.cursor()
+        self.create_table()
 
-        self.cursor.execute("""
+    def create_table(self):
 
+        cursor = self.db.cursor()
+
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS applications(
 
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-            title TEXT,
-
             company TEXT,
+
+            title TEXT,
 
             location TEXT,
 
             source TEXT,
 
-            status TEXT DEFAULT 'Saved'
+            status TEXT,
+
+            applied_date TEXT,
+
+            resume_file TEXT,
+
+            cover_letter_file TEXT,
+
+            notes TEXT
 
         )
-
         """)
 
-        self.conn.commit()
+        self.db.commit()
 
+    def save(self, app):
 
-    def add_application(
-        self,
-        title,
-        company,
-        location,
-        source
-    ):
+        cursor = self.db.cursor()
 
-        self.cursor.execute("""
-
-        SELECT id
-
-        FROM applications
-
-        WHERE
-
-        title=?
-
-        AND
-
-        company=?
-
-        """,
-
-        (
-
-            title,
-
-            company
-
-        )
-
-        )
-
-        if self.cursor.fetchone():
-
-            return False
-
-
-        self.cursor.execute("""
+        cursor.execute("""
 
         INSERT INTO applications(
 
-            title,
-
-            company,
-
-            location,
-
-            source
-
-        )
-
-        VALUES(
-
-            ?,?,?,?
+        company,
+        title,
+        location,
+        source,
+        status,
+        applied_date,
+        resume_file,
+        cover_letter_file,
+        notes
 
         )
+
+        VALUES(?,?,?,?,?,?,?,?,?)
 
         """,
 
         (
 
-            title,
+            app.company,
 
-            company,
+            app.title,
 
-            location,
+            app.location,
 
-            source
+            app.source,
 
-        )
+            app.status,
 
-        )
+            app.applied_date,
 
-        self.conn.commit()
+            app.resume_file,
 
-        return True
+            app.cover_letter_file,
 
+            app.notes
 
-    def all(self):
+        ))
 
-        self.cursor.execute("""
+        self.db.commit()
+
+    def get_all(self):
+
+        cursor = self.db.cursor()
+
+        cursor.execute("""
 
         SELECT *
 
@@ -127,17 +111,42 @@ class ApplicationTracker:
 
         """)
 
-        return self.cursor.fetchall()
+        return cursor.fetchall()
 
+    def update_status(self, app_id, status):
 
-    def total(self):
+        cursor = self.db.cursor()
 
-        self.cursor.execute("""
+        cursor.execute("""
 
-        SELECT COUNT(*)
+        UPDATE applications
 
-        FROM applications
+        SET status=?
 
-        """)
+        WHERE id=?
 
-        return self.cursor.fetchone()[0]
+        """,
+
+        (
+
+            status,
+
+            app_id
+
+        ))
+
+        self.db.commit()
+
+    def delete(self, app_id):
+
+        cursor = self.db.cursor()
+
+        cursor.execute(
+
+            "DELETE FROM applications WHERE id=?",
+
+            (app_id,)
+
+        )
+
+        self.db.commit()
