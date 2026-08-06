@@ -1,8 +1,8 @@
 from pathlib import Path
 from datetime import datetime
 
-from docx import Document
-from docx.shared import Pt
+from app.documents.resume_template import ResumeTemplate
+from app.documents.document_style import DocumentStyle
 
 
 class ResumeGenerator:
@@ -14,7 +14,7 @@ class ResumeGenerator:
 
     def generate(self, tailored_resume, profile, job):
 
-        document = Document()
+        document = ResumeTemplate.create()
 
         # ============================
         # Header
@@ -25,184 +25,161 @@ class ResumeGenerator:
             level=0
         )
 
-        title.runs[0].font.size = Pt(22)
+        DocumentStyle.title(title)
 
-        document.add_paragraph(
-
-            f'{profile.get("email","")} | '
-            f'{profile.get("phone","")}'
-
+        p = document.add_paragraph(
+            f'{profile.get("email", "")} | {profile.get("phone", "")}'
         )
+        DocumentStyle.normal(p)
 
-        document.add_paragraph(
-
-            profile.get("location","")
-
+        p = document.add_paragraph(
+            profile.get("location", "")
         )
+        DocumentStyle.normal(p)
 
-        document.add_paragraph(
-
-            profile.get("linkedin","")
-
+        p = document.add_paragraph(
+            profile.get("linkedin", "")
         )
+        DocumentStyle.normal(p)
 
         # ============================
         # Professional Summary
         # ============================
 
-        document.add_heading(
+        heading = document.add_heading(
             "Professional Summary",
             level=1
         )
+        DocumentStyle.heading(heading)
 
-        document.add_paragraph(
-
-            tailored_resume.get(
-                "summary",
-                ""
-            )
-
+        p = document.add_paragraph(
+            tailored_resume.get("summary", "")
         )
+        DocumentStyle.normal(p)
 
         # ============================
         # Skills
         # ============================
 
-        document.add_heading(
+        heading = document.add_heading(
             "Skills",
             level=1
         )
+        DocumentStyle.heading(heading)
 
-        for skill in tailored_resume.get(
-            "skills",
-            []
-        ):
+        for skill in tailored_resume.get("skills", []):
 
-            document.add_paragraph(
+            p = document.add_paragraph(
                 skill,
                 style="List Bullet"
             )
+            DocumentStyle.normal(p)
 
         # ============================
         # Experience
         # ============================
 
-        document.add_heading(
+        heading = document.add_heading(
             "Experience",
             level=1
         )
+        DocumentStyle.heading(heading)
 
-        for exp in tailored_resume.get(
-            "experience",
-            []
-        ):
+        for exp in tailored_resume.get("experience", []):
 
-            document.add_heading(
-
-                f'{exp.get("title","")} - '
-                f'{exp.get("company","")}',
-
+            sub = document.add_heading(
+                f'{exp.get("title", "")} - {exp.get("company", "")}',
                 level=2
-
             )
 
+            DocumentStyle.heading(sub)
+
             bullets = (
-
                 exp.get("bullets")
-
                 or exp.get("description")
-
                 or []
-
             )
 
             for bullet in bullets:
 
-                document.add_paragraph(
-
+                p = document.add_paragraph(
                     bullet,
-
                     style="List Bullet"
-
                 )
+
+                DocumentStyle.normal(p)
 
         # ============================
         # Education
         # ============================
 
-        document.add_heading(
+        heading = document.add_heading(
             "Education",
             level=1
         )
+        DocumentStyle.heading(heading)
 
-        for edu in profile.get(
-            "education",
-            []
-        ):
+        for edu in profile.get("education", []):
 
-            document.add_paragraph(
-
-                f'{edu.get("degree","")}\n'
-
-                f'{edu.get("school","")}'
-
+            p = document.add_paragraph(
+                f'{edu.get("degree", "")}\n'
+                f'{edu.get("school", "")}'
             )
+
+            DocumentStyle.normal(p)
 
         # ============================
         # Certifications
         # ============================
 
-        document.add_heading(
+        heading = document.add_heading(
             "Certifications",
             level=1
         )
+        DocumentStyle.heading(heading)
 
-        for cert in profile.get(
-            "certifications",
-            []
-        ):
+        for cert in profile.get("certifications", []):
 
-            document.add_paragraph(
-
+            p = document.add_paragraph(
                 cert,
-
                 style="List Bullet"
-
             )
 
+            DocumentStyle.normal(p)
+
         # ============================
-        # Target Job
+        # Target Position
         # ============================
 
-        document.add_heading(
+        heading = document.add_heading(
             "Target Position",
             level=1
         )
+        DocumentStyle.heading(heading)
 
-        document.add_paragraph(job.title)
-        document.add_paragraph(job.company)
+        p = document.add_paragraph(job.title)
+        DocumentStyle.normal(p)
+
+        p = document.add_paragraph(job.company)
+        DocumentStyle.normal(p)
 
         # ============================
-        # Footer
+        # Generated
         # ============================
 
-        document.add_heading(
+        heading = document.add_heading(
             "Generated",
             level=1
         )
+        DocumentStyle.heading(heading)
 
-        document.add_paragraph(
-
-            datetime.now().strftime(
-                "%Y-%m-%d %H:%M"
-            )
-
+        p = document.add_paragraph(
+            datetime.now().strftime("%Y-%m-%d %H:%M")
         )
+        DocumentStyle.normal(p)
 
         filename = self.output_folder / (
-
-            f"{job.title.replace(' ','_')}_Resume.docx"
-
+            f"{job.title.replace(' ', '_')}_Resume.docx"
         )
 
         document.save(filename)
