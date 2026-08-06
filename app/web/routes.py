@@ -10,6 +10,7 @@ from app.search.manager import SearchManager
 from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
 from app.ai.resume_generator import ResumeGenerator
+from app.services.application_service import ApplicationService
 
 web = Blueprint("web", __name__)
 
@@ -25,6 +26,36 @@ def dashboard():
     return render_template(
         "dashboard.html",
         jobs=None
+    )
+
+@web.route("/save/<int:job_id>")
+def save_job(job_id):
+
+    manager = SearchManager()
+
+    job = manager.get_job(job_id)
+
+    if job is None:
+
+        return "Job not found."
+
+    service = ApplicationService()
+
+    service.save_job(job)
+
+    return redirect("/")
+
+@web.route("/applications")
+def applications():
+
+    service = ApplicationService()
+
+    return render_template(
+
+        "applications.html",
+
+        applications=service.get_all()
+
     )
 
 @web.route("/generate/<int:job_id>")

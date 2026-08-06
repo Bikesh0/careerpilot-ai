@@ -27,11 +27,8 @@ class ApplicationTracker:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
             company TEXT,
-
             title TEXT,
-
             location TEXT,
-
             source TEXT,
 
             status TEXT,
@@ -57,15 +54,15 @@ class ApplicationTracker:
 
         INSERT INTO applications(
 
-        company,
-        title,
-        location,
-        source,
-        status,
-        applied_date,
-        resume_file,
-        cover_letter_file,
-        notes
+            company,
+            title,
+            location,
+            source,
+            status,
+            applied_date,
+            resume_file,
+            cover_letter_file,
+            notes
 
         )
 
@@ -76,21 +73,13 @@ class ApplicationTracker:
         (
 
             app.company,
-
             app.title,
-
             app.location,
-
             app.source,
-
             app.status,
-
             app.applied_date,
-
             app.resume_file,
-
             app.cover_letter_file,
-
             app.notes
 
         ))
@@ -117,23 +106,27 @@ class ApplicationTracker:
 
         cursor = self.db.cursor()
 
-        cursor.execute("""
+        cursor.execute(
 
-        UPDATE applications
+            """
 
-        SET status=?
+            UPDATE applications
 
-        WHERE id=?
+            SET status=?
 
-        """,
+            WHERE id=?
 
-        (
+            """,
 
-            status,
+            (
 
-            app_id
+                status,
 
-        ))
+                app_id
+
+            )
+
+        )
 
         self.db.commit()
 
@@ -150,3 +143,33 @@ class ApplicationTracker:
         )
 
         self.db.commit()
+
+    # ==========================
+    # Dashboard Statistics
+    # ==========================
+
+    def count_all(self):
+
+        cursor = self.db.cursor()
+
+        cursor.execute(
+
+            "SELECT COUNT(*) FROM applications"
+
+        )
+
+        return cursor.fetchone()[0]
+
+    def count_status(self, status):
+
+        cursor = self.db.cursor()
+
+        cursor.execute(
+
+            "SELECT COUNT(*) FROM applications WHERE status=?",
+
+            (status,)
+
+        )
+
+        return cursor.fetchone()[0]

@@ -1,6 +1,47 @@
 {% extends "base.html" %}
 
 {% block content %}
+
 <h2>Applications</h2>
-<p>Coming soon...</p>
+
+<table class="table table-striped">
+
+<thead>
+
+<tr>
+
+<th>Company</th>
+
+<th>Position</th>
+
+<th>Status</th>
+
+<th>Date</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for app in applications %}
+
+<tr>
+
+<td>{{ app[1] }}</td>
+
+<td>{{ app[2] }}</td>
+
+<td>{{ app[5] }}</td>
+
+<td>{{ app[6] }}</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
 {% endblock %}
