@@ -41,3 +41,25 @@ class ApplicationService:
     def delete(self, app_id):
 
         self.tracker.delete(app_id)
+
+    # =====================
+    # Dashboard Statistics
+    # =====================
+
+    def statistics(self):
+
+        return {
+
+            "applications": self.tracker.count_all(),
+
+            "saved": self.tracker.count_status("Saved"),
+
+            "applied": self.tracker.count_status("Applied"),
+
+            "interview": self.tracker.count_status("Interview"),
+
+            "offer": self.tracker.count_status("Offer"),
+
+            "rejected": self.tracker.count_status("Rejected")
+
+        }

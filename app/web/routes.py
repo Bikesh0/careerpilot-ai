@@ -23,9 +23,18 @@ resume_ai = ResumeGenerator()
 @web.route("/")
 def dashboard():
 
+    service = ApplicationService()
+
+    stats = service.statistics()
+
     return render_template(
+
         "dashboard.html",
-        jobs=None
+
+        jobs=None,
+
+        stats=stats
+
     )
 
 @web.route("/save/<int:job_id>")
@@ -44,6 +53,8 @@ def save_job(job_id):
     service.save_job(job)
 
     return redirect("/")
+
+
 
 @web.route("/applications")
 def applications():
@@ -98,10 +109,19 @@ def search():
         profile
     )
 
-    return render_template(
-        "dashboard.html",
-        jobs=ranked
-    )
+    service = ApplicationService()
+
+stats = service.statistics()
+
+return render_template(
+
+    "dashboard.html",
+
+    jobs=ranked,
+
+    stats=stats
+
+)
 @web.route("/coverletter/<int:job_id>")
 def coverletter(job_id):
 
