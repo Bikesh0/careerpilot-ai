@@ -66,6 +66,7 @@
             <div class="card-body">
 
                 <h2>{{ stats.saved }}</h2>
+                
 
                 <h2>
 
@@ -113,19 +114,19 @@
 
             <div class="col-md-9">
 
-                <h3>{{ item.job.title }}</h3>
+                <h3>{{ item.title }}</h3>
 
                 <h5 class="text-primary">
-                    {{ item.job.company }}
+                    {{ item.company }}
                 </h5>
 
                 <p>
-                    📍 {{ item.job.location }}
+                    📍 {{ item.location }}
                 </p>
 
                 <p>
                     Source:
-                    <strong>{{ item.job.source }}</strong>
+                    <strong>{{ item.source }}</strong>
                 </p>
 
                 {% if item.matched_skills %}
@@ -148,7 +149,7 @@
 
     <a
         class="btn btn-success"
-        href="/generate/{{ item.job.id }}">
+        href="/generate/{{ item.id }}">
 
         📄 Generate Resume
 
@@ -156,7 +157,7 @@
 
     <a
         class="btn btn-warning"
-        href="/coverletter/{{ item.job.id }}">
+        href="/coverletter/{{ item.id }}">
 
         ✉ Generate Cover Letter
 
@@ -164,9 +165,18 @@
 
     <a
         class="btn btn-info"
-        href="/save/{{ item.job.id }}">
+        href="/save/{{ item.id }}">
 
         💾 Save Job
+<a
+    class="btn btn-primary"
+    href="{{ item.url }}"
+    target="_blank"
+    rel="noopener noreferrer">
+
+    🔗 Apply / View Job
+
+</a>
 
     </a>
 

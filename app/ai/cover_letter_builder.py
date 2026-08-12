@@ -10,34 +10,42 @@ class CoverLetterBuilder:
     def build(self, profile, job):
 
         prompt = f"""
-You are a professional career coach.
+Write a professional cover letter for this job application.
 
-Write a modern ATS-friendly cover letter.
+IMPORTANT RULES:
 
-Rules:
+- Return ONLY the actual cover letter.
+- Do NOT write an introduction explaining what you are doing.
+- Do NOT write a conclusion explaining the letter.
+- Do NOT use markdown.
+- Do NOT use headings such as "Cover Letter".
+- Do NOT use placeholders.
+- Do NOT say "Here is the cover letter".
+- Do NOT ask the candidate for more information.
+- Do NOT invent experience, skills, education or certifications.
+- Use only information contained in the candidate profile.
+- Keep it concise: approximately 250-350 words.
+- Address it to "Dear Hiring Manager,".
+- End with "Sincerely," followed by the candidate's name.
 
-- Use only information from the profile.
-- Never invent experience.
-- Never invent certifications.
-- Keep it professional.
-- Around 350 words.
-- No placeholders.
-- No markdown.
+The letter should:
+1. Clearly state the position being applied for.
+2. Explain why the candidate is relevant to the position.
+3. Connect the candidate's real skills and experience to the job.
+4. Show motivation for the company/role without inventing company-specific facts.
+5. Finish professionally.
 
-Candidate Profile
+CANDIDATE PROFILE:
 
 {profile}
 
-Job
+JOB:
 
-Title:
-{job.title}
+Title: {job.title}
 
-Company:
-{job.company}
+Company: {job.company}
 
-Location:
-{job.location}
+Location: {job.location}
 
 Description:
 
@@ -45,9 +53,6 @@ Description:
 """
 
         return self.ai.ask(
-
-            "You are an expert cover letter writer.",
-
+            "You are an expert professional cover letter writer.",
             prompt
-
-        )
+        ).strip()

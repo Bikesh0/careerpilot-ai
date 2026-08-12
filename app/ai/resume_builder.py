@@ -1,4 +1,5 @@
 import json
+import re
 
 from app.ai.ai_engine import AIEngine
 
@@ -16,18 +17,13 @@ You are an expert ATS resume writer.
 
 Rewrite the candidate's resume for THIS job.
 
-Rules:
+IMPORTANT:
+Return ONLY ONE valid JSON object.
+Do not explain.
+Do not use markdown.
+Do not wrap the JSON in ```.
 
-- Never invent experience.
-- Never invent certifications.
-- Never invent education.
-- Never invent skills.
-- Improve wording.
-- Prioritize relevant experience.
-- Keep ATS friendly.
-- Return ONLY valid JSON.
-
-Return this format:
+Return exactly:
 
 {{
     "summary":"",
@@ -40,28 +36,35 @@ Candidate Profile:
 {json.dumps(profile, indent=2)}
 
 Job Title:
-
 {job.title}
 
 Company:
-
 {job.company}
 
 Location:
-
 {job.location}
 
 Job Description:
-
 {job.description}
 """
 
         response = self.ai.ask(
-
             "You are an ATS resume expert.",
-
             prompt
-
         )
 
-        return json.loads(response)
+        print("\n========== AI RESPONSE ==========")
+        print(response)
+        print("=================================\n")
+
+        # Extract JSON from response
+        match = re.search(r"\{.*\}", response, re.DOTALL)
+
+        if not match:
+            raise Exception(
+                "AI did not return valid JSON."
+            )
+
+        json_text = match.group()
+
+        return json.loads(json_text)

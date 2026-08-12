@@ -14,19 +14,21 @@ class ApplicationService:
 
         application = Application(
 
-            company=job.company,
+    company=job.company,
 
-            title=job.title,
+    title=job.title,
 
-            location=job.location,
+    location=job.location,
 
-            source=job.source,
+    source=job.source,
 
-            status="Saved",
+    status="Saved",
 
-            applied_date=datetime.now().strftime("%Y-%m-%d")
+    applied_date=datetime.now().strftime("%Y-%m-%d"),
 
-        )
+    job_url=job.url
+
+)
 
         self.tracker.save(application)
 

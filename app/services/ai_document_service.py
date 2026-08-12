@@ -23,10 +23,18 @@ class AIDocumentService:
 
         profile = self.profile_loader.load()
 
+        print("\n================ PROFILE ================\n")
+        print(profile)
+        print("\n=========================================\n")
+
         tailored_resume = self.resume_builder.build(
             profile,
             job
         )
+
+        print("\n============= AI RESUME JSON =============\n")
+        print(tailored_resume)
+        print("\n==========================================\n")
 
         return self.resume_generator.generate(
             tailored_resume,
@@ -38,10 +46,18 @@ class AIDocumentService:
 
         profile = self.profile_loader.load()
 
+        print("\n================ PROFILE ================\n")
+        print(profile)
+        print("\n=========================================\n")
+
         letter = self.cover_builder.build(
             profile,
             job
         )
+
+        print("\n=========== AI COVER LETTER =============\n")
+        print(letter)
+        print("\n=========================================\n")
 
         return self.cover_generator.generate(
             letter,

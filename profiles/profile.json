@@ -1,29 +1,92 @@
 {
-    "name":"Bikesh Shrestha",
+    "name": "Bikesh Shrestha",
+    "location": "Helsinki, Finland",
+    "email": "",
+    "phone": "",
+    "linkedin": "linkedin.com/in/shrbikesh",
+    "citizenship": "Finnish & Nepalese Citizenship",
 
-    "summary":"Cyber Security professional with a Master's Degree in Cyber Security and experience in networking, Linux administration, penetration testing and cloud technologies.",
+    "summary": "Cyber Security professional with a Master's Degree in Cyber Security and experience in networking, Linux administration, penetration testing and cloud technologies.",
 
-    "skills":[
-
-        "Python",
-
+    "skills": [
         "Linux",
-
         "Cyber Security",
-
         "Networking",
-
+        "Python",
         "Docker",
-
-        "Azure",
-
-        "Splunk",
-
+        "Kubernetes",
+        "Cloud Platforms",
         "AWS",
-
+        "Azure",
+        "Google Cloud",
+        "Splunk",
+        "SIEM",
         "Incident Response",
+        "Firewall",
+        "IDS/IPS",
+        "Git",
+        "CI/CD"
+    ],
 
-        "SIEM"
+    "experience": [
+        {
+            "title": "Cybersecurity Trainee",
+            "company": "Cisco Networking Academy",
+            "dates": "Jul 2024 – Oct 2024",
+            "description": "Completed practical cybersecurity training involving Linux, networking, security monitoring, penetration testing and security analysis."
+        },
+        {
+            "title": "Graduate Project – Firewall & IDS Configuration",
+            "company": "University of Turku",
+            "dates": "Sep 2020 – Nov 2020",
+            "description": "Configured firewall and IDS solutions in Linux-based environments, monitored network traffic, analyzed logs and investigated security events."
+        },
+        {
+            "title": "Helpdesk Trainee",
+            "company": "Metropolia University of Applied Sciences",
+            "dates": "May 2014 – Aug 2014",
+            "description": "Installed and troubleshot operating systems, supported hardware and software issues, assisted users and maintained IT documentation."
+        },
+        {
+            "title": "Information Technology Intern",
+            "company": "Quadtech Technologies Pvt. Ltd.",
+            "dates": "Nov 2013 – Feb 2014",
+            "description": "Assisted with Linux system setup, hardware installation, basic server maintenance and network troubleshooting."
+        }
+    ],
 
+    "education": [
+        {
+            "degree": "Master's in Information and Communication Technology – Cyber Security (Cryptography)",
+            "school": "University of Turku",
+            "dates": "2020 – 2023"
+        },
+        {
+            "degree": "Bachelor's in Information Technology",
+            "school": "Metropolia University of Applied Sciences",
+            "dates": "2010 – 2016"
+        }
+    ],
+
+    "certifications": [
+        "Ethical Hacker – Cisco Networking Academy (2024)",
+        "CCNA 1 & 2",
+        "Cloud Platforms – FITech (2022)",
+        "Cyber Security – Reaktor Education (2022)"
+    ],
+
+    "languages": [
+        "English – Full Professional Proficiency",
+        "Finnish – B1.1",
+        "Nepali – Native",
+        "Hindi – Fluent"
+    ],
+
+    "interests": [
+        "Cyber Security",
+        "Cloud Infrastructure",
+        "Linux Systems",
+        "AI Infrastructure",
+        "Technology"
     ]
 }

@@ -13,6 +13,8 @@ class Application:
 
     applied_date: str
 
+    job_url: str = ""
+
     resume_file: str = ""
 
     cover_letter_file: str = ""

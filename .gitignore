@@ -5,9 +5,29 @@ __pycache__/
 # Generated output
 output/
 
+# Local database
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
 # Logs
 logs/
+*.log
 
 # Virtual environment
 .venv/
 venv/
+env/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets / environment
+.env
+.env.*
+!.env.example

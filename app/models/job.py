@@ -1,30 +1,51 @@
 class Job:
-
     def __init__(
         self,
-        title,
-        company,
-        location,
-        url,
-        description,
-        source
+        title="",
+        company="",
+        location="",
+        url="",
+        description="",
+        source="",
+        source_id="",
+        posted_at="",
+        employment_type="",
+        workplace_type="",
+        salary="",
+        skills=None,
     ):
-        self.title = title
-        self.company = company
-        self.location = location
-        self.url = url
-        self.description = description
-        self.source = source
+        self.id = None
 
-    def to_dict(self):
-        return {
-            "title": self.title,
-            "company": self.company,
-            "location": self.location,
-            "url": self.url,
-            "description": self.description,
-            "source": self.source
-        }
+        # Basic job information
+        self.title = title or ""
+        self.company = company or ""
+        self.location = location or ""
+        self.url = url or ""
+        self.description = description or ""
 
-    def __str__(self):
-        return f"{self.title} - {self.company} ({self.location})"
+        # Source information
+        self.source = source or ""
+        self.source_id = source_id or ""
+
+        # Additional job information
+        self.posted_at = posted_at or ""
+        self.employment_type = employment_type or ""
+        self.workplace_type = workplace_type or ""
+        self.salary = salary or ""
+
+        # Skills extracted/provided by the job source
+        self.skills = skills if skills is not None else []
+
+        # Matching information
+        self.match_score = 0
+        self.matched_skills = []
+
+    def __repr__(self):
+        return (
+            f"Job("
+            f"title={self.title!r}, "
+            f"company={self.company!r}, "
+            f"location={self.location!r}, "
+            f"source={self.source!r}"
+            f")"
+        )

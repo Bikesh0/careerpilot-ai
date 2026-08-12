@@ -2,8 +2,6 @@ import sqlite3
 from pathlib import Path
 
 
-
-
 class ApplicationTracker:
 
     def __init__(self):
@@ -16,33 +14,78 @@ class ApplicationTracker:
         )
 
         self.create_table()
+        self.migrate_table()
 
     def create_table(self):
 
         cursor = self.db.cursor()
 
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS applications(
+            CREATE TABLE IF NOT EXISTS applications(
 
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-            company TEXT,
-            title TEXT,
-            location TEXT,
-            source TEXT,
+                company TEXT,
+                title TEXT,
+                location TEXT,
+                source TEXT,
 
-            status TEXT,
+                status TEXT,
 
-            applied_date TEXT,
+                applied_date TEXT,
 
-            resume_file TEXT,
+                resume_file TEXT,
+                cover_letter_file TEXT,
 
-            cover_letter_file TEXT,
+                notes TEXT
 
-            notes TEXT
-
-        )
+            )
         """)
+
+        self.db.commit()
+
+    def migrate_table(self):
+
+        """
+        Add columns that may be missing from older
+        CareerPilot database versions.
+
+        Existing data is preserved.
+        """
+
+        cursor = self.db.cursor()
+
+        cursor.execute(
+            "PRAGMA table_info(applications)"
+        )
+
+        existing_columns = {
+            row[1]
+            for row in cursor.fetchall()
+        }
+
+        required_columns = {
+            "company": "TEXT",
+            "title": "TEXT",
+            "location": "TEXT",
+            "source": "TEXT",
+            "status": "TEXT",
+            "applied_date": "TEXT",
+            "resume_file": "TEXT",
+            "cover_letter_file": "TEXT",
+            "notes": "TEXT",
+        }
+
+        for column, column_type in required_columns.items():
+
+            if column not in existing_columns:
+
+                cursor.execute(
+                    f"""
+                    ALTER TABLE applications
+                    ADD COLUMN {column} {column_type}
+                    """
+                )
 
         self.db.commit()
 
@@ -51,27 +94,19 @@ class ApplicationTracker:
         cursor = self.db.cursor()
 
         cursor.execute("""
-
-        INSERT INTO applications(
-
-            company,
-            title,
-            location,
-            source,
-            status,
-            applied_date,
-            resume_file,
-            cover_letter_file,
-            notes
-
-        )
-
-        VALUES(?,?,?,?,?,?,?,?,?)
-
-        """,
-
-        (
-
+            INSERT INTO applications(
+                company,
+                title,
+                location,
+                source,
+                status,
+                applied_date,
+                resume_file,
+                cover_letter_file,
+                notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
             app.company,
             app.title,
             app.location,
@@ -81,23 +116,110 @@ class ApplicationTracker:
             app.resume_file,
             app.cover_letter_file,
             app.notes
-
         ))
 
         self.db.commit()
+
+    def save_job(self, job):
+
+        """
+        Save a CareerPilot job recommendation.
+
+        'Recommended' means CareerPilot identified the
+        job as worth considering. It does NOT mean the
+        user has submitted an application.
+        """
+
+        if not isinstance(job, dict):
+
+            raise TypeError(
+                "save_job() expects a job dictionary"
+            )
+
+        company = job.get(
+            "company",
+            ""
+        )
+
+        title = job.get(
+            "job_title",
+            job.get(
+                "title",
+                ""
+            )
+        )
+
+        location = job.get(
+            "location",
+            ""
+        )
+
+        source = job.get(
+            "source",
+            ""
+        )
+
+        notes = job.get(
+            "notes",
+            ""
+        )
+
+        cursor = self.db.cursor()
+
+        cursor.execute("""
+            SELECT id
+            FROM applications
+            WHERE company = ?
+            AND title = ?
+            LIMIT 1
+        """, (
+            company,
+            title
+        ))
+
+        existing = cursor.fetchone()
+
+        if existing:
+
+            return existing[0]
+
+        cursor.execute("""
+            INSERT INTO applications(
+                company,
+                title,
+                location,
+                source,
+                status,
+                applied_date,
+                resume_file,
+                cover_letter_file,
+                notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            company,
+            title,
+            location,
+            source,
+            "Recommended",
+            "",
+            "",
+            "",
+            notes
+        ))
+
+        self.db.commit()
+
+        return cursor.lastrowid
 
     def get_all(self):
 
         cursor = self.db.cursor()
 
         cursor.execute("""
-
-        SELECT *
-
-        FROM applications
-
-        ORDER BY id DESC
-
+            SELECT *
+            FROM applications
+            ORDER BY id DESC
         """)
 
         return cursor.fetchall()
@@ -106,27 +228,14 @@ class ApplicationTracker:
 
         cursor = self.db.cursor()
 
-        cursor.execute(
-
-            """
-
+        cursor.execute("""
             UPDATE applications
-
             SET status=?
-
             WHERE id=?
-
-            """,
-
-            (
-
-                status,
-
-                app_id
-
-            )
-
-        )
+        """, (
+            status,
+            app_id
+        ))
 
         self.db.commit()
 
@@ -135,27 +244,18 @@ class ApplicationTracker:
         cursor = self.db.cursor()
 
         cursor.execute(
-
             "DELETE FROM applications WHERE id=?",
-
             (app_id,)
-
         )
 
         self.db.commit()
-
-    # ==========================
-    # Dashboard Statistics
-    # ==========================
 
     def count_all(self):
 
         cursor = self.db.cursor()
 
         cursor.execute(
-
             "SELECT COUNT(*) FROM applications"
-
         )
 
         return cursor.fetchone()[0]
@@ -165,11 +265,8 @@ class ApplicationTracker:
         cursor = self.db.cursor()
 
         cursor.execute(
-
             "SELECT COUNT(*) FROM applications WHERE status=?",
-
             (status,)
-
         )
 
         return cursor.fetchone()[0]

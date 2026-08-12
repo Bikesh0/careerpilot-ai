@@ -1,30 +1,23 @@
-from flask import Blueprint
-from flask import render_template
-from flask import send_file
-from flask import redirect
+from flask import Blueprint, render_template, redirect
 
 from app.search.manager import SearchManager
 from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
-from app.ai.resume_generator import ResumeGenerator
-
 from app.services.application_service import ApplicationService
-from app.services.document_service import DocumentService
-from app.services.profile_service import ProfileService
+from app.services.ai_document_service import AIDocumentService
+
 
 web = Blueprint("web", __name__)
 
 manager = SearchManager()
 matcher = JobMatcher()
 profile_loader = ProfileLoader()
-resume_ai = ResumeGenerator()
+document_ai = AIDocumentService()
 
 
 @web.route("/")
 def dashboard():
-
     service = ApplicationService()
-
     stats = service.statistics()
 
     return render_template(
@@ -36,7 +29,6 @@ def dashboard():
 
 @web.route("/search")
 def search():
-
     jobs = manager.search_jobs()
 
     profile = profile_loader.load()
@@ -47,7 +39,6 @@ def search():
     )
 
     service = ApplicationService()
-
     stats = service.statistics()
 
     return render_template(
@@ -57,9 +48,8 @@ def search():
     )
 
 
-@web.route("/resume/<int:job_id>")
-def resume(job_id):
-
+@web.route("/generate/<int:job_id>")
+def generate(job_id):
     job = manager.get_job(job_id)
 
     if job is None:
@@ -67,77 +57,49 @@ def resume(job_id):
 
     profile = profile_loader.load()
 
-    filename = resume_ai.generate(
-        job,
-        profile
-    )
-
-    return send_file(
-        filename,
-        as_attachment=True
-    )
-
-
-@web.route("/generate/<int:job_id>")
-def generate(job_id):
-
-    job = manager.get_job(job_id)
-
-    if job is None:
-        return "Job not found."
-
-    profile = ProfileService()
-
-    cv_path = profile.get_master_cv()
-
-    document = DocumentService()
-
-    filename = document.generate_resume(
-        cv_path,
+    resume = document_ai.resume_builder.build(
+        profile,
         job
     )
 
-    return send_file(
-        filename,
-        as_attachment=True
+    return render_template(
+        "resume.html",
+        profile=profile,
+        resume=resume,
+        job=job
     )
 
 
 @web.route("/coverletter/<int:job_id>")
 def coverletter(job_id):
-
     job = manager.get_job(job_id)
 
     if job is None:
         return "Job not found."
 
-    profile = ProfileService()
+    profile = profile_loader.load()
 
-    cv_path = profile.get_master_cv()
-
-    document = DocumentService()
-
-    filename = document.generate_cover_letter(
-        cv_path,
+    letter = document_ai.cover_builder.build(
+        profile,
         job
     )
 
-    return send_file(
-        filename,
-        as_attachment=True
+    return render_template(
+        "coverletter.html",
+        profile=profile,
+        job=job,
+        letter=letter
     )
 
 
 @web.route("/save/<int:job_id>")
 def save_job(job_id):
-
     job = manager.get_job(job_id)
 
     if job is None:
         return "Job not found."
 
     service = ApplicationService()
-
     service.save_job(job)
 
     return redirect("/")
@@ -145,7 +107,6 @@ def save_job(job_id):
 
 @web.route("/applications")
 def applications():
-
     service = ApplicationService()
 
     return render_template(
@@ -156,7 +117,6 @@ def applications():
 
 @web.route("/status/<int:app_id>/<status>")
 def update_status(app_id, status):
-
     service = ApplicationService()
 
     service.update_status(
@@ -169,7 +129,6 @@ def update_status(app_id, status):
 
 @web.route("/delete/<int:app_id>")
 def delete_application(app_id):
-
     service = ApplicationService()
 
     service.delete(app_id)
