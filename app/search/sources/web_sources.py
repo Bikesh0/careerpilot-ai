@@ -607,7 +607,7 @@ class DuunitoriSource(WebSourceBase):
             "Tampere",
             "Turku",
             "Oulu",
-            "Jyväskylä",
+            "JyvÃ¤skylÃ¤",
             "Lahti",
             "Kuopio",
             "Vaasa",
@@ -707,7 +707,7 @@ class JoblySource(WebSourceBase):
                         continue
 
                     if title.lower() in [
-                        "tallenna työpaikka",
+                        "tallenna tyÃ¶paikka",
                         "tallenna haku"
                     ]:
                         continue
@@ -1041,7 +1041,7 @@ class JoblySource(WebSourceBase):
             "Tampere",
             "Turku",
             "Oulu",
-            "Jyväskylä",
+            "JyvÃ¤skylÃ¤",
             "Lahti",
             "Kuopio",
             "Vaasa",
@@ -1058,3 +1058,158 @@ class JoblySource(WebSourceBase):
                 return city
 
         return "Finland"
+class TyomarkkinatoriSource(WebSourceBase):
+
+    SOURCE = "Tyomarkkinatori"
+    BASE_URL = "https://tyomarkkinatori.fi"
+
+    SEARCH_TERMS = [
+        "SOC analyst",
+        "security analyst",
+        "kyberturvallisuus",
+        "tietoturva",
+        "information security",
+        "security engineer",
+        "security specialist",
+        "cloud security",
+        "network security",
+        "jarjestelmaasiantuntija",
+        "system administrator",
+        "cloud engineer",
+        "devops",
+        "technical support",
+    ]
+
+    SEARCH_URL = (
+        "https://tyomarkkinatori.fi/henkiloasiakkaat/avoimet-tyopaikat"
+    )
+
+    def search(self):
+
+        jobs = []
+        seen = set()
+
+        html = self.get_page(self.SEARCH_URL)
+
+        if not html:
+            return jobs
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        for link in soup.find_all("a", href=True):
+
+            href = link.get("href", "")
+            title = self.clean(
+                link.get_text(" ", strip=True)
+            )
+
+            if not title or len(title) < 4:
+                continue
+
+            if not self.title_is_relevant(title):
+                continue
+
+            full_url = urljoin(self.BASE_URL, href)
+            key = full_url.lower()
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            job = self.make_job(
+                title=title,
+                company="",
+                location="Finland",
+                url=full_url,
+                source=self.SOURCE,
+                description="",
+            )
+
+            if job:
+                jobs.append(job)
+
+        print(
+            f"TyomarkkinatoriSource found "
+            f"{len(jobs)} jobs"
+        )
+
+        return jobs
+
+
+class WorkInFinlandSource(WebSourceBase):
+
+    SOURCE = "Work in Finland"
+    BASE_URL = "https://www.workinfinland.com"
+
+    SEARCH_URL = (
+        "https://www.workinfinland.com/en/open-jobs/"
+    )
+
+    SEARCH_TERMS = [
+        "security",
+        "cybersecurity",
+        "information security",
+        "security engineer",
+        "security analyst",
+        "cloud security",
+        "network security",
+        "devops",
+        "cloud engineer",
+        "software engineer",
+        "technical support",
+        "system administrator",
+    ]
+
+    def search(self):
+
+        jobs = []
+        seen = set()
+
+        html = self.get_page(self.SEARCH_URL)
+
+        if not html:
+            return jobs
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        for link in soup.find_all("a", href=True):
+
+            href = link.get("href", "")
+            title = self.clean(
+                link.get_text(" ", strip=True)
+            )
+
+            if not title or len(title) < 4:
+                continue
+
+            if not self.title_is_relevant(title):
+                continue
+
+            full_url = urljoin(self.BASE_URL, href)
+            key = full_url.lower()
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            job = self.make_job(
+                title=title,
+                company="",
+                location="Finland",
+                url=full_url,
+                source=self.SOURCE,
+                description="",
+            )
+
+            if job:
+                jobs.append(job)
+
+        print(
+            f"WorkInFinlandSource found "
+            f"{len(jobs)} jobs"
+        )
+
+        return jobs
+
