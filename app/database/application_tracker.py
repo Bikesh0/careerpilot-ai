@@ -4,12 +4,27 @@ from pathlib import Path
 
 class ApplicationTracker:
 
-    def __init__(self):
+    def __init__(self, database_path=None):
+        """Create an application tracker.
 
-        Path("data").mkdir(exist_ok=True)
+        ``database_path`` is optional so production continues to use the
+        existing ``data/careerpilot.db`` location. It also lets callers use
+        an isolated SQLite file when running tests or maintenance scripts.
+        """
+
+        database_path = (
+            Path(database_path)
+            if database_path is not None
+            else Path("data") / "careerpilot.db"
+        )
+
+        database_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         self.db = sqlite3.connect(
-            "data/careerpilot.db",
+            str(database_path),
             check_same_thread=False
         )
 

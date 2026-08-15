@@ -1,0 +1,20 @@
+{
+  "jobs": [
+    {
+      "id": 4242,
+      "title": "Junior Security Engineer",
+      "content": "Work with Linux, SIEM monitoring, Python automation, and incident response.",
+      "location": {"name": "Helsinki, Finland"},
+      "absolute_url": "https://boards.greenhouse.io/aiven/jobs/4242",
+      "first_published": "2026-08-01T09:00:00Z"
+    },
+    {
+      "id": 4243,
+      "title": "Account Executive",
+      "content": "Own commercial customer relationships.",
+      "location": {"name": "Helsinki, Finland"},
+      "absolute_url": "https://boards.greenhouse.io/aiven/jobs/4243",
+      "first_published": "2026-08-01T09:00:00Z"
+    }
+  ]
+}

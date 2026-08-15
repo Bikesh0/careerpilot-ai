@@ -103,13 +103,13 @@ class GreenhouseSource:
                             url=job_url,
                             description=description,
                             source="Greenhouse",
-                            source_url=job_url,
-                            company_url=(
-                                f"https://{board_token}.com"
+                            source_id=str(
+                                item.get("id", "")
                             ),
-                            published_at=item.get(
-                                "first_published"
-                            )
+                            posted_at=item.get(
+                                "first_published",
+                                "",
+                            ),
                         )
                     )
 
