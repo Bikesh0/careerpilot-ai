@@ -21,6 +21,8 @@ from .ranking import (
     RankedJob,
 )
 
+from .service import V2SearchService
+
 __all__ = [
     "CanonicalJob",
     "normalize_job",
@@ -35,4 +37,5 @@ __all__ = [
     "SourceRunner",
     "JobRanker",
     "RankedJob",
+    "V2SearchService",
 ]
