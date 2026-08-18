@@ -110,14 +110,15 @@ filtering.
 
 ## Denial-of-service / hung requests
 
-**Found and fixed this session.** `AIEngine.ask()` (used by the actual
-resume/cover-letter generation path) called `ollama.chat()` with no
-timeout at all. Live-tested: in an environment where the local Ollama
-service responds very slowly, this could block a Flask request
-indefinitely. It now uses the same bounded daemon-thread watchdog pattern
-already used by `app.ai.llm.LocalLLM` elsewhere in the codebase (default
-30s, configurable via `OLLAMA_TIMEOUT`), returning a clear failure instead
-of hanging. See `docs/AI.md`.
+**Found and fixed this session.** The resume/cover-letter generation
+path called `ollama.chat()` with no timeout at all (via a since-removed
+duplicate class, `AIEngine`). Live-tested: in an environment where the
+local Ollama service responds very slowly, this could block a Flask
+request indefinitely. It was first hardened with a bounded daemon-thread
+watchdog, then that duplicate class was consolidated away entirely -
+every AI call site now goes through the single `app.ai.llm.LocalLLM`
+(default 30s timeout, configurable via `OLLAMA_TIMEOUT`), returning a
+clear failure instead of hanging. See `docs/AI.md`.
 
 ## Dependency posture
 

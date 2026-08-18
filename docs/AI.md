@@ -53,27 +53,35 @@ ever used for something higher-stakes than a personal job search.
 
 ### Availability and failure behavior
 
-**Found and fixed this session**: the actual code path behind the
-dashboard's generation buttons (`AIEngine.ask()`) called `ollama.chat()`
-with no timeout at all, and could hang a Flask request indefinitely if
-the local model was slow to respond - reproduced live in this
-development environment. It was rewritten to use the same bounded
-daemon-thread watchdog pattern already used elsewhere in this codebase by
-`app.ai.llm.LocalLLM` (default 30s, configurable via `OLLAMA_TIMEOUT`),
-returning `None` on timeout or failure instead of hanging. The
-`/generate/<id>` and `/coverletter/<id>` routes catch that and return a
-`503` with a plain-language message instead of an unhandled crash.
+**Found and fixed this session**: the code path behind the dashboard's
+generation buttons (at the time, a separate class - `AIEngine.ask()`,
+since removed, see "One Ollama wrapper class" below) called
+`ollama.chat()` with no timeout at all, and could hang a Flask request
+indefinitely if the local model was slow to respond - reproduced live in
+this development environment. It was first hardened with the same
+bounded daemon-thread watchdog pattern `LocalLLM` already used, then
+that duplicate class was removed entirely once every call site was
+migrated onto `LocalLLM` directly (default 30s, configurable via
+`OLLAMA_TIMEOUT`), returning `None` on timeout or failure instead of
+hanging. The `/generate/<id>` and `/coverletter/<id>` routes catch that
+and return a `503` with a plain-language message instead of an unhandled
+crash.
 
-**Why two Ollama wrapper classes exist.** `app/ai/llm.py`'s `LocalLLM` and
-`app/ai/ai_engine.py`'s `AIEngine` are two separate implementations of
-"call a local model, don't hang, return `None` on failure" - `LocalLLM` is
-used by `app/ai/analyzer.py` and `app/documents/cover_letter_generator.py`;
-`AIEngine` (now hardened to match `LocalLLM`'s reliability behavior) is
-used by `ResumeBuilder`/`CoverLetterBuilder`/`ProfileExtractor`. Both now
-share the same fail-soft design, but the duplication itself is a
-reasonable candidate for consolidation - not done in this session, to
-avoid a large, mechanical refactor across every AI call site with no
-functional benefit beyond deduplication. See `docs/PRODUCT_VISION.md`.
+**One Ollama wrapper class, not two.** `app/ai/llm.py`'s `LocalLLM` is now
+the single local-model client for the whole codebase - used directly by
+`app/ai/analyzer.py`, `app/documents/cover_letter_generator.py`, and (as
+of this consolidation) `ResumeBuilder`/`CoverLetterBuilder`/
+`ProfileExtractor`, which previously went through a separate,
+independently-hardened duplicate (`app/ai/ai_engine.py`'s `AIEngine`,
+now removed). `LocalLLM.ask()` gained an optional `system` parameter
+(sent as a leading system-role message) to support those three call
+sites' system+user prompt pattern, while staying fully backward
+compatible with existing single-prompt callers. Consolidating onto
+`LocalLLM` also fixed a small behavior gap: `AIEngine` defaulted to a
+hardcoded `model="llama3.1"` with no auto-detection, while `LocalLLM`
+auto-detects whichever model is actually installed when `OLLAMA_MODEL`
+isn't set - verified live (`"Local LLM: llama3.1:latest"` reported
+correctly after the switch).
 
 **The application works without Ollama.** Matching, ranking, search, the
 dashboard, saved jobs, and application tracking all function with zero

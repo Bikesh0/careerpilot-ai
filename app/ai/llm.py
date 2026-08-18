@@ -168,21 +168,34 @@ class LocalLLM:
     # Internal Ollama request
     # =========================================================
 
-    def _chat(self, prompt):
+    def _chat(self, prompt, system=None):
         """
         Perform the actual Ollama request.
 
         This method is executed in a daemon thread by ask().
         """
 
+        messages = []
+
+        if system:
+
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system,
+                }
+            )
+
+        messages.append(
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        )
+
         return self.client.chat(
             model=self.model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            messages=messages,
             options={
                 # Keep generation reasonably fast.
                 "num_predict": self.max_output_tokens,
@@ -199,9 +212,15 @@ class LocalLLM:
     def ask(
         self,
         prompt,
+        system=None,
     ):
         """
         Send a prompt to Ollama safely.
+
+        `system`, when given, is sent as a leading system-role message
+        - the same two-message shape app.ai.ai_engine.AIEngine used to
+        build by hand before both call sites were consolidated onto
+        this class.
 
         Returns:
             str | None
@@ -235,7 +254,8 @@ class LocalLLM:
             try:
 
                 result["response"] = self._chat(
-                    prompt
+                    prompt,
+                    system=system,
                 )
 
             except Exception as error:

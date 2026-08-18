@@ -1,14 +1,14 @@
 import json
 import re
 
-from app.ai.ai_engine import AIEngine
+from app.ai.llm import LocalLLM
 
 
 class ResumeBuilder:
 
     def __init__(self):
 
-        self.ai = AIEngine()
+        self.ai = LocalLLM()
 
     def build(self, profile, job):
 
@@ -49,8 +49,8 @@ Job Description:
 """
 
         response = self.ai.ask(
-            "You are an ATS resume expert.",
-            prompt
+            prompt,
+            system="You are an ATS resume expert.",
         )
 
         if response is None:

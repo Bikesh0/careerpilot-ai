@@ -220,11 +220,10 @@ than an oversight.
 `AIDocumentService` composes `ResumeBuilder`/`ResumeGenerator` and
 `CoverLetterBuilder`/`CoverLetterGenerator`. The `*_builder.py` classes
 build a prompt from the profile + selected job and call a local Ollama
-model through `AIEngine` (`app/ai/ai_engine.py`); the `*_generator.py`
-classes turn the AI's output into an actual `.docx` file via
-`app/documents/`. See `docs/AI.md` for the full AI architecture and why
-two separate Ollama wrapper classes (`AIEngine` and `app.ai.llm.LocalLLM`)
-currently coexist.
+model through `app.ai.llm.LocalLLM` (the single Ollama wrapper class in
+this codebase - a previously-separate duplicate, `AIEngine`, was
+consolidated into it, see `docs/AI.md`); the `*_generator.py` classes
+turn the AI's output into an actual `.docx` file via `app/documents/`.
 
 ### Persistence (`app/database/`)
 

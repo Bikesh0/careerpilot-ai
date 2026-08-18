@@ -108,19 +108,7 @@ it:
       log lines. Only worth building if source reliability becomes a
       recurring debugging pain point - see `docs/DATA_SOURCES.md`.
 
-## Priority 6 - Consolidate the two Ollama wrapper classes
-
-- [ ] `app/ai/llm.py` (`LocalLLM`) and `app/ai/ai_engine.py` (`AIEngine`)
-      are two separate implementations of the same
-      "call-a-local-model-without-hanging" pattern. `AIEngine` was
-      hardened this session to match `LocalLLM`'s reliability behavior,
-      but the duplication itself remains. Consolidating would need
-      `LocalLLM.ask()` to support an optional system-prompt parameter (it
-      currently only takes one combined prompt) before every call site
-      using `AIEngine` can switch over. Low urgency - both are now
-      equally safe, this is a cleanup, not a bug fix.
-
-## Priority 7 - Final verification pass
+## Priority 6 - Final verification pass
 
 - [ ] Full repo-wide `py_compile` check (not yet run across every file
       this session, only on files actually changed).

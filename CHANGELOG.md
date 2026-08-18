@@ -1,5 +1,34 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-18 - Consolidate the two Ollama wrapper classes
+
+Continuing down `NEXT_TASKS.md` Priority 6: `app/ai/llm.py`'s `LocalLLM`
+and `app/ai/ai_engine.py`'s `AIEngine` were two independent
+implementations of the same "call a local model without hanging, return
+`None` on failure" pattern - `LocalLLM` used by `app/ai/analyzer.py` and
+`app/documents/cover_letter_generator.py`; `AIEngine` (hardened earlier
+this session to match `LocalLLM`'s reliability behavior) used by
+`ResumeBuilder`, `CoverLetterBuilder`, and `ProfileExtractor`.
+
+Gave `LocalLLM.ask()` an optional `system` parameter (sent as a leading
+system-role message, same shape `AIEngine` built by hand), fully
+backward compatible with existing single-prompt callers. Migrated all
+three `AIEngine` call sites onto `LocalLLM` and removed `ai_engine.py`
+entirely - confirmed unused by any other code or test first.
+
+This also fixed a small, real behavior gap in the process: `AIEngine`
+defaulted to a hardcoded `model="llama3.1"` with no auto-detection, while
+`LocalLLM` auto-detects whichever model is actually installed when
+`OLLAMA_MODEL` isn't set. Verified live: after the switch, resume/cover-
+letter/CV-extraction all correctly report the actually-installed model
+(`"Local LLM: llama3.1:latest"`) and still degrade gracefully within the
+configured timeout when Ollama doesn't respond in time.
+
+No test suite changes needed - `tests/test_cv_upload.py` and
+`tests/test_ranking_unification.py` mock at the builder-method level, not
+the underlying Ollama client, so they were unaffected. Full suite: 54
+passed (unchanged).
+
 ## 2026-08-18 - Unify V1/V2 ranking on the dashboard
 
 Continuing down `NEXT_TASKS.md` Priority 1: the dashboard always

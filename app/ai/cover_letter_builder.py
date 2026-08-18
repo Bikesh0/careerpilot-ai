@@ -1,11 +1,11 @@
-from app.ai.ai_engine import AIEngine
+from app.ai.llm import LocalLLM
 
 
 class CoverLetterBuilder:
 
     def __init__(self):
 
-        self.ai = AIEngine()
+        self.ai = LocalLLM()
 
     def build(self, profile, job):
 
@@ -53,8 +53,8 @@ Description:
 """
 
         letter = self.ai.ask(
-            "You are an expert professional cover letter writer.",
-            prompt
+            prompt,
+            system="You are an expert professional cover letter writer.",
         )
 
         if letter is None:

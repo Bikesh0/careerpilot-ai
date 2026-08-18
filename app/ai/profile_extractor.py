@@ -1,14 +1,14 @@
 import json
 import re
 
-from app.ai.ai_engine import AIEngine
+from app.ai.llm import LocalLLM
 
 
 class ProfileExtractor:
 
     def __init__(self):
 
-        self.ai = AIEngine()
+        self.ai = LocalLLM()
 
     def extract(self, cv_text):
 
@@ -41,9 +41,9 @@ CV:
 
         response = self.ai.ask(
 
-            "You extract structured resume data.",
+            prompt,
 
-            prompt
+            system="You extract structured resume data.",
 
         )
 

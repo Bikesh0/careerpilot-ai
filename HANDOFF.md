@@ -11,67 +11,48 @@
 
 ## Current state
 
-The full project-completion pass is done, plus four follow-up fixes made
+The full project-completion pass is done, plus five follow-up fixes made
 while continuing autonomously down `NEXT_TASKS.md`: a user-reported
 saved-jobs bug, a self-discovered navigation bug, the CV upload feature,
-and - most recently - unifying V1/V2 ranking on the dashboard.
+unifying V1/V2 ranking on the dashboard, and - most recently -
+consolidating the two Ollama wrapper classes.
 
-## Most recent: V1/V2 ranking unification
+## Most recent: Ollama wrapper consolidation
 
-**Traced first, before changing code**: V2 search (collection ->
-normalization -> dedupe -> matching -> ranking) already computed its own
-score/matched_skills/reasons per job, but `app/web/routes.py._search_jobs()`
-discarded that `MatchResult` one line after computing it
-(`[item.job for item in ranked]`), and `_rank_jobs()` unconditionally
-re-scored every job through the legacy `app.ai.matcher.JobMatcher`
-regardless of whether V2 had succeeded. That's why the dashboard always
-showed V1 scores.
-
-**Fix**: `_search_jobs()` now stashes each job's `MatchResult` onto the
-`CanonicalJob` itself (`job._v2_match`), the same technique already used
-for `.id`. `_rank_jobs()` checks whether every job in the list carries
-one; if so, a new adapter (`_present_v2_ranked_jobs()`) reshapes V2's own
-data into the dashboard's presentation format, preserving V2's ranking
-order (no re-sort, no re-scoring). If not - V2 disabled, or V2 itself
-failed - the exact same legacy `matcher.rank_jobs()` call that existed
-before runs, unchanged. Neither matcher's own logic was touched; the only
-new code is the adapter and the ownership check. Added a small "match
-reasons" list to `dashboard.html` (data that already existed but was
-never rendered).
-
-**Tests**: `tests/test_ranking_unification.py` (6) - V2 score/reasons
-shown correctly (using reason text only V2 ever produces as proof),
-ranking order preserved, legacy mode untouched when disabled, adapter
-failure falls back gracefully, save/generate/cover-letter still resolve
-V2 jobs.
-
-**Live-verified against the real profile through the real Flask
-dashboard** (not just tests): top result "Staff Security Engineer" now
-renders with V2's exact score (74%) and V2's exact reason strings on the
-page.
-
-**Known, now-visible tradeoff, logged not hidden**: V2's matcher still
-lacks V1's Finnish-language title terms, exclusion list, and
-experience-requirement penalties, so results differ slightly depending on
-whether V2 succeeded for a given request. This is `NEXT_TASKS.md`
-Priority 1 now (porting that logic into V2's matcher).
+`app/ai/llm.py`'s `LocalLLM` and `app/ai/ai_engine.py`'s `AIEngine` were
+two independent implementations of the same fail-soft local-model
+pattern. Gave `LocalLLM.ask()` an optional `system` parameter (backward
+compatible), migrated all three `AIEngine` call sites
+(`ResumeBuilder`, `CoverLetterBuilder`, `ProfileExtractor`) onto
+`LocalLLM`, and removed `ai_engine.py` entirely (confirmed unused
+elsewhere first). Side effect, verified live: `AIEngine` had a hardcoded
+`model="llama3.1"` with no auto-detection; `LocalLLM` auto-detects the
+actually-installed model, so this is a small real improvement, not just
+a refactor. All three call sites still degrade gracefully within the
+configured `OLLAMA_TIMEOUT`, verified live. No test changes needed (the
+suite mocks at the builder-method level). Full suite: 54 passed
+(unchanged - this was a pure internal consolidation).
 
 ## Everything completed this session, most recent first
 
-1. **V1/V2 ranking unification** (above).
-2. **CV upload** - `/settings` + `/settings/upload-cv`, safe file
+1. **Ollama wrapper consolidation** (above).
+2. **V1/V2 ranking unification** - the dashboard now shows V2's own
+   score/matched-skills/reasons whenever V2 search succeeds (verified
+   live against the real profile: top result "Staff Security Engineer"
+   at 74% with V2's exact reason strings), instead of always re-scoring
+   through the legacy matcher. Legacy mode is untouched when V2 is
+   disabled or fails. See `docs/ARCHITECTURE.md`'s "The V1/V2 split."
+   Known, now-visible tradeoff logged as `NEXT_TASKS.md` Priority 1:
+   V2's matcher still lacks V1's Finnish-language title terms, exclusion
+   list, and experience-requirement penalties.
+3. **CV upload** - `/settings` + `/settings/upload-cv`, safe file
    handling (UUID filenames, path-traversal-proof, verified), 10MB cap,
-   review-only (never auto-writes to `profiles/profile.json`). Hardened
-   `ProfileExtractor` against the same JSON-in-fence fragility fixed
-   twice before. Fixed a PyMuPDF deprecation warning.
-3. **Broken sidebar navigation** - 4 of 8 links 404'd
-   (`/resume`, `/coverletter`, `/interview`, `/settings`); fixed, two
-   dead/duplicate templates removed (one had the profile.json-style
-   fence-corruption bug).
-4. **Saved jobs not saving correctly** (user-reported) - `save()` had no
-   duplicate detection at all (a differently-named sibling method did,
-   but the dashboard never called it), and `job_url` was silently
-   dropped from every save. Fixed both.
+   review-only (never auto-writes to `profiles/profile.json`).
+4. **Broken sidebar navigation** - 4 of 8 links 404'd; fixed, two
+   dead/duplicate templates removed.
+5. **Saved jobs not saving correctly** (user-reported) - no duplicate
+   detection on the actual save path, and `job_url` silently dropped.
+   Both fixed.
 
 ## Verification
 
@@ -85,22 +66,17 @@ Repo-wide `python -m compileall app tests *.py`: clean.
 
 ## Documentation updated this round
 
-`docs/ARCHITECTURE.md` ("The V1/V2 split" rewritten, "Why two matchers
-exist" updated with the known tradeoff, "Presentation layer" section
-split by producer), `docs/MATCHING_AND_RANKING.md` (intro + "Known edge
-cases" updated, live-verification note added), `docs/TESTING.md` (new
-test file entry), `README.md` (architecture diagram, project structure,
-roadmap - including two stale claims found and fixed: V1 matcher
-described as unconditionally used by the dashboard, and CV parsing
-described as "not yet wired to a route" after it already was),
-`docs/PORTFOLIO.md` (updated interview answers, test count, "what's
-next"), `NEXT_TASKS.md`, `CHANGELOG.md`, this file.
+`docs/AI.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`,
+`docs/TECHNOLOGY_STACK.md` (all `AIEngine` references reframed as
+historical - it no longer exists - plus a stale `CVParser`-not-wired-up
+claim in `TECHNOLOGY_STACK.md` found and fixed, missed in an earlier
+pass), `NEXT_TASKS.md` (Priority 6 removed), `CHANGELOG.md`, this file.
 
-## Known, honestly-documented limitations (carried forward + new)
+## Known, honestly-documented limitations (carried forward)
 
 - V2's matcher lacks V1's Finnish-language title terms, exclusion list,
-  and experience-requirement penalties - now a live, visible difference
-  in dashboard results depending on whether V2 succeeded (`NEXT_TASKS.md`
+  and experience-requirement penalties - a live, visible difference in
+  dashboard results depending on whether V2 succeeded (`NEXT_TASKS.md`
   Priority 1).
 - Tyomarkkinatori and Work in Finland return 0 results (client-side
   JavaScript rendering, not TLS - see `docs/DATA_SOURCES.md`).
@@ -114,14 +90,15 @@ next"), `NEXT_TASKS.md`, `CHANGELOG.md`, this file.
 
 ## Exact next task
 
-Per `NEXT_TASKS.md`, in order: Priority 1 (port V1's Finnish
-terms/exclusion list/experience penalty into V2's matcher - the natural
-continuation of this session's unification work), Priority 2 (real data
-from the two JS-rendered sources), Priority 3/3b (CV-to-profile merge
-step; output-directory mismatch), Priority 4 (skill-gap feature, already
-correctly scoped - it needs job-requirement extraction, not just
-exposing existing data), Priority 5/6 (source diagnostics, Ollama wrapper
-consolidation - both low urgency), Priority 7 (final verification pass).
+Continuing per the user's explicit instruction to proceed through the
+remaining release priorities without stopping: real data from the two
+JS-rendered job sources (`NEXT_TASKS.md` Priority 2 - needs either
+browser-based network inspection to find an internal API, not yet
+attempted, or a scoped decision to add Playwright), then final security
+review, final integration testing, documentation review, and release
+audit, per the user's explicit list. Priority 1 (porting V1 logic into
+V2's matcher) and Priority 3/3b/4/5 remain queued in `NEXT_TASKS.md` in
+priority order for whichever comes next after those.
 
 ## Handoff protocol
 
