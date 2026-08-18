@@ -4,11 +4,23 @@ __pycache__/
 
 # Generated output
 output/
+resumes/
+cover_letters/
 
 # Local database
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+/careerpilot.db
+*.db-journal
+
+# Test scratch directories
+.pytest_cache/
+.pytest-tmp/
+.pytest_tmp/
+
+# One-off local backup directories
+.careerpilot-v2-backup-*/
 
 # Logs
 logs/
