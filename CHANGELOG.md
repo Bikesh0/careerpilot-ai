@@ -1,5 +1,36 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-18 - Fix: saved jobs not saving correctly
+
+Investigated a user-reported issue ("saved jobs are not saving correctly
+from the dashboard") by tracing the complete flow - dashboard -> `Save
+Job` link -> `/save/<id>` -> `ApplicationService` -> `ApplicationTracker`
+-> SQLite -> `/applications` page - and reproducing with a Flask test
+client against an isolated database before changing any code.
+
+Found and fixed two real bugs:
+
+- **Saving the same job twice created a duplicate database row.**
+  `ApplicationTracker.save()` (what the dashboard's `/save/<id>` route
+  actually calls) had no duplicate detection at all. A separate,
+  differently-named sibling method (`save_job()`, used only by the V1 CLI
+  agent) did have dedup logic, but the dashboard never went through it.
+- **The job's URL was silently dropped on every save.** `job_url` was
+  accepted by `Application`/`ApplicationService.save_job()` but was never
+  in the `applications` table's schema or `ApplicationTracker.save()`'s
+  `INSERT` statement.
+
+Added a `job_url` column (safe/additive migration) and a shared
+`ApplicationTracker.find_existing()` duplicate check (by `job_url`, or
+company+title as a fallback for older rows), used by both save methods.
+Re-saving an already-saved job now returns the existing record instead of
+inserting a duplicate, and no longer resets its status.
+
+Added `tests/test_dashboard_save_job.py`: full-flow persistence and
+display, duplicate-prevention, V2 `CanonicalJob` compatibility, and a
+fast unit-level dedup test on `ApplicationTracker` directly. Full suite:
+**43 passed** (was 39).
+
 ## 2026-08-18 - V2 completion, live bug fixes, and full documentation
 
 ### V2 search foundation completed

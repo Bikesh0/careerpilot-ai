@@ -30,6 +30,7 @@ suite performs a live network request or calls Ollama.
 | `test_duunitori_source.py` | `DuunitoriSource.parse_job_detail()` prefers `<h1>` over the JSON-LD taxonomy-slug `title` field - a direct regression test for that bug |
 | `test_source_domain_guard.py` | `WebSourceBase.is_same_site()` accepts same-domain links and rejects absolute off-domain links, per source |
 | `test_routes_v2_job_ids.py` | `_search_jobs()` assigns sequential local ids to V2 results and registers them on `manager.latest_jobs` - a direct regression test for the broken Generate/Save dashboard links |
+| `test_dashboard_save_job.py` | Full dashboard -> `/save/<id>` -> `ApplicationTracker` -> SQLite -> `/applications` flow, using a real Flask test client and an isolated on-disk database: a job saves and persists correctly (including `job_url`, previously silently dropped), appears on the applications page, saving the same job twice does not create a duplicate row, and V2 `CanonicalJob` results save correctly |
 | `test_greenhouse_source.py` | `GreenhouseSource` field mapping against a mocked HTTP response |
 | `test_persistence_integration.py`, `test_v1_search_integration.py` | V1 search + SQLite persistence, against a temporary database |
 | `test_suitability.py`, `test_filter_and_matching.py` | V1 job-suitability scoring and filtering |
@@ -49,6 +50,12 @@ suite performs a live network request or calls Ollama.
   (`app.web.routes.v2_enabled`, `app.web.routes.create_v2_service`) rather
   than exercising a real Flask test client end-to-end, specifically to
   avoid a live network call inside the automated suite.
+- **Full end-to-end route tests** (`test_dashboard_save_job.py`) do use a
+  real Flask test client for the entire dashboard -> save -> applications
+  round trip, still with `create_v2_service`/`v2_enabled` monkeypatched
+  (no live network call) and the database isolated via
+  `monkeypatch.chdir(tmp_path)`, since `ApplicationTracker` resolves its
+  SQLite path relative to the current working directory.
 - **Integration tests** (`test_persistence_integration.py`,
   `test_v1_search_integration.py`) use a temporary SQLite database
   (`tmp_path`), never the real `data/careerpilot.db`.

@@ -196,6 +196,18 @@ currently coexist.
 used by `/save/<id>`, `/applications`, `/status/<id>/<status>`, and
 `/delete/<id>`.
 
+`ApplicationTracker` has two save methods with different callers: `save()`
+(an `Application` dataclass in, used by the dashboard's `/save/<id>` route
+via `ApplicationService.save_job()`) and `save_job()` (a raw dict in, used
+only by the V1 CLI agent in `main.py`). Both now share one
+`find_existing()` duplicate check - job_url when present, else
+company+title - so saving the same job twice returns the existing row's
+id instead of inserting a second record. `ApplicationTracker.__init__`
+resolves its database path relative to the current working directory
+(`Path("data") / "careerpilot.db"`) unless a `database_path` override is
+passed - worth knowing when writing a test or running the app from an
+unexpected working directory.
+
 ## Known dedupe limitation
 
 `CanonicalJob.dedupe_key()` requires an exact match of normalized
