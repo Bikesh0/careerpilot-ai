@@ -1,6 +1,6 @@
 import json
 import re
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -109,6 +109,24 @@ class WebSourceBase:
             " ",
             str(value)
         ).strip()
+
+    def is_same_site(self, url):
+        """Guard against following scraped links off-domain.
+
+        Listing pages can contain absolute hrefs (ads, embedded
+        widgets, compromised content) pointing anywhere. urljoin()
+        leaves an absolute href untouched, so without this check a
+        crafted link could make the scraper fetch an attacker- or
+        internally-controlled URL instead of a real job posting.
+        """
+
+        try:
+            return (
+                urlparse(url).netloc.lower()
+                == urlparse(self.BASE_URL).netloc.lower()
+            )
+        except ValueError:
+            return False
 
     def title_is_relevant(self, title):
 
@@ -233,6 +251,9 @@ class DuunitoriSource(WebSourceBase):
                         self.BASE_URL,
                         href
                     )
+
+                    if not self.is_same_site(full_url):
+                        continue
 
                     if "lisaa_suosikkeihin" in (
                         full_url.lower()
@@ -370,7 +391,7 @@ class DuunitoriSource(WebSourceBase):
                     if not is_job:
                         continue
 
-                    title = self.clean(
+                    ld_title = self.clean(
                         item.get(
                             "title",
                             ""
@@ -478,18 +499,24 @@ class DuunitoriSource(WebSourceBase):
 
                 continue
 
-        if not title:
+        # Duunitori's JobPosting JSON-LD "title" field holds an internal
+        # occupation-taxonomy slug (e.g. "tietoturva-asiantuntija"), not
+        # the posted job title, so the visible <h1> is the reliable
+        # source and takes priority whenever it is present.
+        heading = soup.find("h1")
 
-            heading = soup.find("h1")
-
-            if heading:
-
-                title = self.clean(
-                    heading.get_text(
-                        " ",
-                        strip=True
-                    )
+        heading_title = (
+            self.clean(
+                heading.get_text(
+                    " ",
+                    strip=True
                 )
+            )
+            if heading
+            else ""
+        )
+
+        title = heading_title or ld_title
 
         if not company:
 
@@ -721,6 +748,9 @@ class JoblySource(WebSourceBase):
                         self.BASE_URL,
                         href
                     )
+
+                    if not self.is_same_site(full_url):
+                        continue
 
                     key = full_url.lower()
 
@@ -1110,6 +1140,10 @@ class TyomarkkinatoriSource(WebSourceBase):
                 continue
 
             full_url = urljoin(self.BASE_URL, href)
+
+            if not self.is_same_site(full_url):
+                continue
+
             key = full_url.lower()
 
             if key in seen:
@@ -1187,6 +1221,10 @@ class WorkInFinlandSource(WebSourceBase):
                 continue
 
             full_url = urljoin(self.BASE_URL, href)
+
+            if not self.is_same_site(full_url):
+                continue
+
             key = full_url.lower()
 
             if key in seen:
