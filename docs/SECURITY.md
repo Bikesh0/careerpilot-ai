@@ -74,14 +74,29 @@ Python, not shell commands.
 ## Path handling
 
 `app/parsers/cv_parser.py` (`CVParser.parse(file_path)`) opens a file path
-directly with no path-traversal guard. This is **not currently a live
-attack surface**: no Flask route accepts a user-supplied file path and
-passes it here - `CVParser` and `app/web/actions.py` (`WebActions`) are
-both fully implemented but not wired to any route (confirmed: nothing in
-the codebase imports either class outside their own files). If a CV-upload
-route is added in the future (see `docs/PRODUCT_VISION.md`), it must
-generate/validate the destination path itself rather than trust a
-client-supplied filename or path.
+directly with no path-traversal guard of its own - safety here comes from
+its caller, not from `CVParser` itself.
+
+**Now a live attack surface**: `/settings/upload-cv`
+(`app/web/routes.py`) accepts a file upload and is the only route that
+calls `CVParser.parse()`. The client-supplied filename is **never** used
+to build the destination path - `_save_uploaded_cv()` only reads its
+extension (checked against an allow-list: `.pdf`, `.docx`) and writes to
+a freshly generated `uuid4().hex` filename under `data/cv_uploads/`, so a
+filename like `"../../evil.docx"` cannot escape that directory (verified
+directly: `tests/test_cv_upload.py` uploads a file with that exact name
+and asserts the saved path stays inside `data/cv_uploads/` and is never
+named `evil.docx`). The upload is also capped at 10MB
+(`app.config["MAX_CONTENT_LENGTH"]` in `webapp.py`) to reject a trivially
+abusive upload before it's fully read into memory.
+
+Extracted CV data is displayed for review only - `/settings/upload-cv`
+never writes to `profiles/profile.json` automatically, so a bad or
+AI-hallucinated extraction can't silently corrupt the profile that
+matching, resumes, and cover letters depend on.
+
+`app/web/actions.py` (`WebActions`) remains unused - nothing in the
+codebase imports it outside its own file.
 
 ## AI-generated content
 

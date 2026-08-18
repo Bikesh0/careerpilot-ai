@@ -17,10 +17,18 @@ it should be introduced as a genuinely separate, documented option, not
 silently assumed.
 
 **Used for**: resume generation (`app/ai/resume_builder.py` +
-`app/ai/resume_generator.py`) and cover-letter generation
+`app/ai/resume_generator.py`), cover-letter generation
 (`app/ai/cover_letter_builder.py` + `app/ai/cover_letter_generator.py`),
-both reachable from the dashboard via `/generate/<id>` and
-`/coverletter/<id>`.
+and structured-data extraction from an uploaded CV
+(`app/ai/profile_extractor.py`), reachable from the dashboard via
+`/generate/<id>`, `/coverletter/<id>`, and `/settings/upload-cv`
+respectively. `ProfileExtractor.extract()` was hardened alongside being
+wired up to a live route for the first time: it now tolerates the model
+wrapping its JSON response in a Markdown code fence (the same class of
+bug found in `profiles/profile.json` and `templates/resume_template.html`
+elsewhere in this codebase) by extracting the first `{...}` block rather
+than assuming a bare JSON response, and raises a clear error instead of
+an unhandled `TypeError` if the model doesn't respond at all.
 
 **Not used for**: matching, ranking, deduplication, filtering, or search.
 All of that is deterministic Python (`app/search/v2/matching`,

@@ -43,9 +43,14 @@ Implemented and verified in this repository:
 - Profile-aware matching: skills, target titles, target locations, and
   seniority, each contributing to a transparent, weighted score
 - A Flask dashboard showing ranked jobs, matched skills, and job metadata
-- Save-job / application tracking with status updates, backed by SQLite
+- Save-job / application tracking with status updates, backed by SQLite,
+  with duplicate-record prevention (by job URL, or company+title as a
+  fallback)
 - AI-assisted resume and cover letter generation via a local Ollama model,
   grounded in the candidate's actual profile (no invented experience)
+- CV upload (PDF/DOCX) with AI-assisted data extraction for review - safe
+  file handling (no client-controlled paths), never auto-merged into the
+  profile
 - Graceful degradation: a slow/unavailable local LLM returns a clear error
   instead of hanging the request; a failing job source doesn't take down the
   rest of the search
@@ -53,8 +58,8 @@ Implemented and verified in this repository:
 Not yet wired up (see [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) for
 full status):
 
-- CV/resume file upload and parsing (`CVParser` exists and is tested in
-  isolation, but no route uses it yet)
+- Merging reviewed CV-extracted data into `profiles/profile.json` (the
+  upload/extract/review flow above stops short of this deliberately)
 - Browser-automation-based scraping for JavaScript-rendered job boards
 
 ## Architecture
@@ -238,17 +243,20 @@ See [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) for source-by-source
 status. In short: Tyomarkkinatori and Work in Finland are JavaScript-rendered
 sites whose job listings are not present in the static HTML this project's
 `requests`+BeautifulSoup scraper fetches - they currently return zero
-results, honestly, rather than partially-broken data. CV file upload/parsing
-is implemented but not yet exposed through a route.
+results, honestly, rather than partially-broken data. CV upload/extraction
+stops at a review step by design - it never automatically writes to
+`profiles/profile.json`.
 
 ## Roadmap
 
 - **Implemented**: V2 search/matching/ranking pipeline, Flask dashboard,
-  save-job/application tracking, AI resume and cover-letter generation,
-  automated test suite.
+  save-job/application tracking (duplicate-safe), AI resume and
+  cover-letter generation, CV upload with AI-assisted extraction for
+  review, automated test suite.
 - **In progress**: unifying the dashboard's presentation ranking (currently
   the legacy `app.ai.matcher.JobMatcher`) with the V2 matcher's scoring
-  output - see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+  output - see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); merging
+  reviewed CV data into the profile.
 - **Planned**: fetching Tyomarkkinatori/Work in Finland listings via their
   underlying JSON APIs (or a headless browser) instead of static HTML;
   wiring up CV upload/parsing to a route.

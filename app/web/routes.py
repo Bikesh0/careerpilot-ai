@@ -1,5 +1,8 @@
 
-from flask import Blueprint, render_template, redirect
+import uuid
+from pathlib import Path
+
+from flask import Blueprint, render_template, redirect, request
 
 from app.search.manager import SearchManager
 from app.search.v2.factory import (
@@ -8,6 +11,8 @@ from app.search.v2.factory import (
 )
 from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
+from app.ai.profile_extractor import ProfileExtractor
+from app.parsers.cv_parser import CVParser
 from app.services.application_service import ApplicationService
 from app.services.ai_document_service import AIDocumentService
 
@@ -27,6 +32,47 @@ manager = SearchManager()
 matcher = JobMatcher()
 profile_loader = ProfileLoader()
 document_ai = AIDocumentService()
+profile_extractor = ProfileExtractor()
+cv_parser = CVParser()
+
+
+# =========================================================
+# CV upload
+# =========================================================
+
+CV_UPLOAD_DIR = Path("data") / "cv_uploads"
+
+ALLOWED_CV_EXTENSIONS = {".pdf", ".docx"}
+
+
+def _save_uploaded_cv(uploaded_file):
+    """
+    Save an uploaded CV to a project-controlled path.
+
+    The client-supplied filename is never used to build the
+    destination path - only its extension is trusted, and only after
+    checking it against an allow-list. The actual filename on disk is
+    a fresh UUID, which also rules out overwriting another user's
+    upload via a repeated/predictable name.
+    """
+
+    suffix = Path(uploaded_file.filename or "").suffix.lower()
+
+    if suffix not in ALLOWED_CV_EXTENSIONS:
+        raise ValueError(
+            "Only PDF and DOCX files are supported."
+        )
+
+    CV_UPLOAD_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    destination = CV_UPLOAD_DIR / f"{uuid.uuid4().hex}{suffix}"
+
+    uploaded_file.save(destination)
+
+    return destination
 
 
 # =========================================================
@@ -279,7 +325,80 @@ def interview():
 def settings():
 
     return render_template(
-        "settings.html"
+        "settings.html",
+        extracted=None,
+        upload_error=None,
+    )
+
+
+@web.route("/settings/upload-cv", methods=["POST"])
+def upload_cv():
+
+    uploaded_file = request.files.get("cv_file")
+
+    if uploaded_file is None or not uploaded_file.filename:
+
+        return render_template(
+            "settings.html",
+            extracted=None,
+            upload_error="Please choose a PDF or DOCX file.",
+        )
+
+    try:
+
+        saved_path = _save_uploaded_cv(uploaded_file)
+
+    except ValueError as error:
+
+        return render_template(
+            "settings.html",
+            extracted=None,
+            upload_error=str(error),
+        )
+
+    try:
+
+        cv_text = cv_parser.parse(saved_path)
+
+    except Exception as error:
+
+        print(
+            f"CV parsing failed: {error}"
+        )
+
+        return render_template(
+            "settings.html",
+            extracted=None,
+            upload_error=(
+                "Could not read that file. Make sure it is a valid "
+                "PDF or DOCX CV."
+            ),
+        )
+
+    try:
+
+        extracted = profile_extractor.extract(cv_text)
+
+    except Exception as error:
+
+        print(
+            f"CV profile extraction failed: {error}"
+        )
+
+        return render_template(
+            "settings.html",
+            extracted=None,
+            upload_error=(
+                "AI extraction is unavailable right now (the local "
+                "Ollama model did not respond). The file was saved; "
+                "please try again once Ollama is running."
+            ),
+        )
+
+    return render_template(
+        "settings.html",
+        extracted=extracted,
+        upload_error=None,
     )
 
 

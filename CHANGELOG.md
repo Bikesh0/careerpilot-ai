@@ -1,5 +1,43 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-18 - Feature: CV upload with AI-assisted extraction (review-only)
+
+Continuing down `NEXT_TASKS.md` Priority 3: wired up `CVParser`
+(PDF/DOCX text extraction) and `ProfileExtractor` (LLM-based CV-to-JSON),
+both previously implemented and unit-tested in isolation but unreachable
+from any route.
+
+New: `GET /settings` (upload form) and `POST /settings/upload-cv`. File
+handling never trusts the client-supplied filename beyond its extension
+(checked against a `.pdf`/`.docx` allow-list) - the file is always saved
+under a fresh `uuid4().hex` name in `data/cv_uploads/`, verified directly
+with a test that uploads a file named `"../../evil.docx"` and asserts it
+cannot escape that directory. Request bodies are capped at 10MB
+(`app.config["MAX_CONTENT_LENGTH"]`).
+
+Deliberately stops at review: extracted data is displayed on `/settings`,
+never automatically written to `profiles/profile.json` - a bad or
+AI-hallucinated extraction should not be able to silently corrupt the
+profile that matching, resumes, and cover letters all depend on. Logged
+as a separate, explicit next step in `NEXT_TASKS.md`.
+
+While wiring this up, hardened `ProfileExtractor.extract()`
+(`app/ai/profile_extractor.py`), which previously called `json.loads()`
+directly on the raw model response with no fence-stripping or
+`None`-check - the exact bug class found twice already this session
+(`profiles/profile.json`, `templates/resume_template.html`). It now
+extracts the first `{...}` block from the response (matching the
+existing, more robust pattern in `resume_builder.py`) and raises a clear
+error instead of an unhandled `TypeError` if the model doesn't respond.
+
+Also fixed a `DeprecationWarning` in `app/parsers/cv_parser.py`
+(`import fitz` -> `import pymupdf as fitz`), noticed while live-testing
+this now-live code path.
+
+Verified live end to end with real `.docx` and `.pdf` files through the
+actual `CVParser` (not mocked). Added `tests/test_cv_upload.py` (4
+tests). Full suite: 48 passed.
+
 ## 2026-08-18 - Fix: broken sidebar navigation links
 
 While continuing down `NEXT_TASKS.md` after the saved-jobs fix below,

@@ -34,16 +34,16 @@ removed rather than left checked - see git history for what they were.
       Weigh this against the added complexity/dependency surface before
       committing to it.
 
-## Priority 3 - Wire up the CV-upload path
+## Priority 3 - Merge reviewed CV data into the profile
 
-- [ ] `CVParser` (PDF/docx text extraction) and `ProfileExtractor`
-      (LLM-based CV-to-JSON) are both implemented and unit-tested in
-      isolation but not reachable from any Flask route.
-- [ ] Add an upload route that saves the uploaded file to a
-      project-controlled path (never a client-supplied path/filename -
-      see `docs/SECURITY.md`), parses it, and either merges the result
-      into `profiles/profile.json` or presents it for review before
-      merging.
+The CV-upload path itself is done (`/settings/upload-cv` - see
+`docs/PRODUCT_VISION.md`, `docs/SECURITY.md`). It deliberately stops at
+review - nothing writes to `profiles/profile.json` yet.
+
+- [ ] Design and build an "accept these fields" step (per-field or
+      per-section, not a single blind merge, so a bad or
+      AI-hallucinated extraction can't silently corrupt the profile
+      everything else depends on).
 
 ## Priority 3b - Fix the resume/cover-letter output directory mismatch
 

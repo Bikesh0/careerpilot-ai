@@ -1,6 +1,122 @@
 {% extends "base.html" %}
 
 {% block content %}
+
 <h2>Settings</h2>
-<p>Coming soon...</p>
+
+<h3>Upload your CV</h3>
+
+<p>
+    Upload a PDF or DOCX CV to see what CareerPilot AI would extract
+    from it. This is a review-only preview - it does <strong>not</strong>
+    automatically change <code>profiles/profile.json</code>, which
+    remains the single source of truth for matching, resumes, and
+    cover letters. Review the extracted data below and update your
+    profile file yourself if it looks correct.
+</p>
+
+<form
+    method="POST"
+    action="{{ url_for('web.upload_cv') }}"
+    enctype="multipart/form-data"
+    class="mb-4"
+>
+    <div class="mb-3">
+        <input
+            type="file"
+            name="cv_file"
+            accept=".pdf,.docx"
+            class="form-control"
+            required
+        >
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Upload and Extract
+    </button>
+</form>
+
+{% if upload_error %}
+
+    <div class="alert alert-warning">
+        {{ upload_error }}
+    </div>
+
+{% endif %}
+
+{% if extracted %}
+
+    <h3>Extracted data (review only)</h3>
+
+    <table class="table table-bordered">
+
+        <tbody>
+
+            {% for key in ["name", "email", "phone", "location", "linkedin", "summary"] %}
+                {% if extracted.get(key) %}
+                    <tr>
+                        <th style="width: 180px;">{{ key|capitalize }}</th>
+                        <td>{{ extracted.get(key) }}</td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+
+            {% if extracted.get("skills") %}
+                <tr>
+                    <th>Skills</th>
+                    <td>{{ extracted.get("skills")|join(", ") }}</td>
+                </tr>
+            {% endif %}
+
+            {% if extracted.get("certifications") %}
+                <tr>
+                    <th>Certifications</th>
+                    <td>{{ extracted.get("certifications")|join(", ") }}</td>
+                </tr>
+            {% endif %}
+
+        </tbody>
+
+    </table>
+
+    {% if extracted.get("experience") %}
+
+        <h4>Experience</h4>
+
+        <ul>
+            {% for item in extracted.get("experience") %}
+                <li>
+                    {% if item is mapping %}
+                        {{ item.get("title", "") }}
+                        {% if item.get("company") %} - {{ item.get("company") }}{% endif %}
+                    {% else %}
+                        {{ item }}
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+
+    {% endif %}
+
+    {% if extracted.get("education") %}
+
+        <h4>Education</h4>
+
+        <ul>
+            {% for item in extracted.get("education") %}
+                <li>
+                    {% if item is mapping %}
+                        {{ item.get("degree", "") }}
+                        {% if item.get("school") %} - {{ item.get("school") }}{% endif %}
+                    {% else %}
+                        {{ item }}
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+
+    {% endif %}
+
+{% endif %}
+
 {% endblock %}

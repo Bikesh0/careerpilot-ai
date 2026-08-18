@@ -36,13 +36,22 @@ Skill Gap                 PLANNED
      |                  to read it from V2's matcher directly.
      v
 CV Improvement            IN PROGRESS
-     |                  CVParser (app/parsers/cv_parser.py) parses PDF/docx
-     |                  CVs to text and is unit-testable in isolation, but
-     |                  no Flask route uses it - there is no upload form.
-     |                  ProfileExtractor (app/ai/profile_extractor.py)
-     |                  exists to turn parsed CV text into structured
-     |                  profile data via the local LLM, also not wired to
-     |                  a route.
+     |                  /settings/upload-cv accepts a PDF/DOCX upload,
+     |                  saves it safely (never trusting the client
+     |                  filename/path - see docs/SECURITY.md), parses it
+     |                  with CVParser, and extracts structured data with
+     |                  ProfileExtractor via the local LLM - verified live
+     |                  end to end with real .docx and .pdf files.
+     |                  Deliberately review-only: the extracted data is
+     |                  displayed on /settings, not auto-merged into
+     |                  profiles/profile.json, so a bad or
+     |                  AI-hallucinated extraction can't silently corrupt
+     |                  the profile everything else depends on. "IN
+     |                  PROGRESS" rather than "IMPLEMENTED" because the
+     |                  merge-into-profile step - the part that actually
+     |                  changes what CareerPilot does with your data -
+     |                  still doesn't exist; today you'd copy the
+     |                  reviewed data into profile.json by hand.
      v
 Cover Letter               IMPLEMENTED
      |                  Grounded in the real profile + selected job,
@@ -92,10 +101,12 @@ Fixing this needs either their internal JSON API (undocumented, would
 need to be reverse-engineered from real browser traffic) or a headless
 browser dependency (Playwright/Selenium - neither currently installed).
 
-## Planned: CV upload route
+## Planned: merge extracted CV data into the profile
 
-`CVParser` and `ProfileExtractor` are implemented and would only need a
-Flask route (accept a file upload, save it to a path this project
-controls - not a client-supplied path, see `docs/SECURITY.md` - parse it,
-and either merge the result into `profiles/profile.json` or present it for
-review) to close this loop.
+`/settings/upload-cv` extracts and displays CV data but never writes to
+`profiles/profile.json` - that was a deliberate scope boundary (see
+"CV Improvement" above), not an oversight. Closing this loop needs a
+real UI decision: an "accept these fields" review step (checkbox per
+field, or per section) rather than a single blind merge, since the
+whole point of keeping this review-only was to not let an imperfect
+extraction silently overwrite curated profile data.

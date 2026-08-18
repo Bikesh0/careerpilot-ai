@@ -17,6 +17,11 @@ app = Flask(
     )
 )
 
+# Caps request body size (mainly the CV upload route) at 10MB, well
+# above any real CV but enough to reject an accidental/abusive huge
+# upload before it's fully read into memory.
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+
 app.register_blueprint(web)
 
 

@@ -177,9 +177,24 @@ re-search), `/generate/<id>` (resume), `/coverletter/<id>`, `/save/<id>`,
 `/applications`, `/status/<id>/<status>`, `/delete/<id>`, plus four
 sidebar-navigation routes that previously 404'd (`/resume` and
 `/coverletter` redirect to the dashboard since generation is
-job-specific; `/interview` and `/settings` render existing "Coming soon"
-placeholders). Debug mode is opt-in via `FLASK_DEBUG=1` (see
-`docs/SECURITY.md`).
+job-specific; `/interview` renders an existing "Coming soon" placeholder;
+`/settings` now hosts the CV upload form) and `/settings/upload-cv`
+(`POST`, see "CV upload" below). Debug mode is opt-in via
+`FLASK_DEBUG=1`, and request bodies are capped at 10MB
+(`app.config["MAX_CONTENT_LENGTH"]`) - see `docs/SECURITY.md`.
+
+### CV upload (`/settings`, `/settings/upload-cv`)
+
+`_save_uploaded_cv()` in `app/web/routes.py` never trusts the
+client-supplied filename for anything beyond its extension (checked
+against an allow-list) - the file is always written to a fresh
+`uuid4().hex`-named path under `data/cv_uploads/`. The route then runs
+`CVParser.parse()` (PDF via PyMuPDF, DOCX via python-docx) and
+`ProfileExtractor.extract()` (local LLM, JSON-in-Markdown-fence-tolerant
+- see `docs/AI.md`) and renders the result on `/settings` for review.
+It deliberately does not write to `profiles/profile.json` - see
+`docs/PRODUCT_VISION.md` for why that's a real, separate step rather
+than an oversight.
 
 ### AI document generation (`app/ai/*_builder.py`, `app/documents/`)
 

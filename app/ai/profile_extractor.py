@@ -1,4 +1,5 @@
 import json
+import re
 
 from app.ai.ai_engine import AIEngine
 
@@ -46,4 +47,21 @@ CV:
 
         )
 
-        return json.loads(response)
+        if response is None:
+            raise RuntimeError(
+                "CV extraction is unavailable "
+                "(local Ollama did not respond)."
+            )
+
+        # The model sometimes wraps its JSON in a Markdown code fence
+        # or adds surrounding text despite being asked not to - pull
+        # out the first {...} block rather than assuming the response
+        # is bare JSON.
+        match = re.search(r"\{.*\}", response, re.DOTALL)
+
+        if not match:
+            raise ValueError(
+                "AI did not return valid JSON for the CV."
+            )
+
+        return json.loads(match.group())
