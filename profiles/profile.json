@@ -88,5 +88,28 @@
         "Linux Systems",
         "AI Infrastructure",
         "Technology"
+    ],
+
+    "target_locations": [
+        "Helsinki",
+        "Espoo",
+        "Vantaa",
+        "Finland"
+    ],
+
+    "target_titles": [
+        "Cyber Security Engineer",
+        "Cybersecurity Engineer",
+        "Security Engineer",
+        "Cyber Security Specialist",
+        "Cybersecurity Specialist",
+        "Information Security Specialist",
+        "Security Analyst",
+        "Cyber Security Analyst",
+        "SOC Analyst",
+        "Cloud Security Engineer",
+        "Network Security Engineer",
+        "Information Security Engineer",
+        "DevSecOps Engineer"
     ]
 }
