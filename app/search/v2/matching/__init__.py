@@ -1,7 +1,3 @@
-﻿from .matcher import JobMatcher
-from .result import MatchResult
+from .matcher import JobMatcher
 
-__all__ = [
-    "JobMatcher",
-    "MatchResult",
-]
+__all__ = ["JobMatcher"]

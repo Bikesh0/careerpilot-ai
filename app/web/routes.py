@@ -1,6 +1,11 @@
+
 from flask import Blueprint, render_template, redirect
 
 from app.search.manager import SearchManager
+from app.search.v2.factory import (
+    create_v2_service,
+    v2_enabled,
+)
 from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
 from app.services.application_service import ApplicationService
@@ -25,6 +30,99 @@ document_ai = AIDocumentService()
 
 
 # =========================================================
+# SEARCH HELPERS
+# =========================================================
+
+def _load_profile():
+    """Load the current user profile safely."""
+
+    try:
+        return profile_loader.load()
+
+    except Exception as error:
+        print(
+            f"Profile loading failed: {error}"
+        )
+
+        return {}
+
+
+def _search_jobs(profile=None):
+    """
+    Search using V2 when enabled.
+
+    V1 remains the fallback if V2 is disabled
+    or encounters an error.
+    """
+
+    if v2_enabled():
+
+        try:
+
+            service = create_v2_service(
+                profile=profile
+            )
+
+            ranked = service.search(
+                limit=50
+            )
+
+            print(
+                f"V2 search returned "
+                f"{len(ranked)} ranked jobs"
+            )
+
+            return [
+                item.job
+                for item in ranked
+            ]
+
+        except Exception as error:
+
+            print(
+                f"V2 search failed, "
+                f"falling back to V1: {error}"
+            )
+
+    try:
+
+        return manager.search_jobs()
+
+    except Exception as error:
+
+        print(
+            f"V1 search failed: {error}"
+        )
+
+        return []
+
+
+def _rank_jobs(jobs, profile):
+    """
+    Keep the existing presentation ranking layer.
+
+    V2 provides improved ingestion and matching data,
+    while the existing matcher continues to provide
+    dashboard-compatible ranked job objects.
+    """
+
+    try:
+
+        return matcher.rank_jobs(
+            jobs,
+            profile
+        )
+
+    except Exception as error:
+
+        print(
+            f"Job ranking failed: {error}"
+        )
+
+        return []
+
+
+# =========================================================
 # DASHBOARD
 # =========================================================
 
@@ -35,63 +133,48 @@ def dashboard():
     stats = service.statistics()
 
     # -----------------------------------------------------
+    # Load profile first
+    # -----------------------------------------------------
+
+    profile = _load_profile()
+
+    # -----------------------------------------------------
     # Load jobs
     # -----------------------------------------------------
 
-    if not getattr(manager, "latest_jobs", None):
+    if v2_enabled():
 
-        print("Dashboard: no cached jobs, searching...")
+        jobs = _search_jobs(
+            profile=profile
+        )
 
-        try:
+    elif not getattr(
+        manager,
+        "latest_jobs",
+        None,
+    ):
 
-            jobs = manager.search_jobs()
+        print(
+            "Dashboard: no cached jobs, "
+            "searching..."
+        )
 
-        except Exception as error:
-
-            print(
-                f"Dashboard search failed: {error}"
-            )
-
-            jobs = []
+        jobs = _search_jobs(
+            profile=profile
+        )
 
     else:
 
         jobs = manager.latest_jobs
 
     # -----------------------------------------------------
-    # Load profile
-    # -----------------------------------------------------
-
-    try:
-
-        profile = profile_loader.load()
-
-    except Exception as error:
-
-        print(
-            f"Dashboard profile loading failed: {error}"
-        )
-
-        profile = {}
-
-    # -----------------------------------------------------
     # Rank jobs
     # -----------------------------------------------------
 
-    try:
-
-        ranked = matcher.rank_jobs(
-            jobs,
-            profile
-        )
-
-    except Exception as error:
-
-        print(
-            f"Dashboard ranking failed: {error}"
-        )
-
-        ranked = []
+    ranked = _rank_jobs(
+        jobs,
+        profile,
+    )
 
     # -----------------------------------------------------
     # Render dashboard
@@ -100,7 +183,7 @@ def dashboard():
     return render_template(
         "dashboard.html",
         jobs=ranked,
-        stats=stats
+        stats=stats,
     )
 
 
@@ -111,44 +194,28 @@ def dashboard():
 @web.route("/search")
 def search():
 
-    try:
+    # -----------------------------------------------------
+    # Load profile first so V2 can rank against it
+    # -----------------------------------------------------
 
-        jobs = manager.search_jobs()
+    profile = _load_profile()
 
-    except Exception as error:
+    # -----------------------------------------------------
+    # Search
+    # -----------------------------------------------------
 
-        print(
-            f"Search failed: {error}"
-        )
+    jobs = _search_jobs(
+        profile=profile
+    )
 
-        jobs = []
+    # -----------------------------------------------------
+    # Presentation ranking
+    # -----------------------------------------------------
 
-    try:
-
-        profile = profile_loader.load()
-
-    except Exception as error:
-
-        print(
-            f"Profile loading failed: {error}"
-        )
-
-        profile = {}
-
-    try:
-
-        ranked = matcher.rank_jobs(
-            jobs,
-            profile
-        )
-
-    except Exception as error:
-
-        print(
-            f"Search ranking failed: {error}"
-        )
-
-        ranked = []
+    ranked = _rank_jobs(
+        jobs,
+        profile,
+    )
 
     service = ApplicationService()
     stats = service.statistics()
@@ -156,7 +223,7 @@ def search():
     return render_template(
         "dashboard.html",
         jobs=ranked,
-        stats=stats
+        stats=stats,
     )
 
 
@@ -280,3 +347,4 @@ def delete_application(app_id):
     service.delete(app_id)
 
     return redirect("/applications")
+

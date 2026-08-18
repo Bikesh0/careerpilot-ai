@@ -1,25 +1,33 @@
-﻿from typing import Iterable, List
+from dataclasses import dataclass
+from typing import Iterable
 
+from app.search.v2.job import CanonicalJob
 from app.search.v2.matching import JobMatcher
 from app.search.v2.matching.result import MatchResult
 
 
+@dataclass
 class RankedJob:
-    def __init__(self, job, match: MatchResult):
-        self.job = job
-        self.match = match
+    """A canonical job together with its match result."""
+
+    job: CanonicalJob
+    match: MatchResult
+    rank: int = 0
 
     @property
-    def score(self):
+    def score(self) -> float:
         return self.match.score
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         data = self.job.to_dict()
+        data["rank"] = self.rank
+        data["score"] = self.match.score
         data["match"] = self.match.to_dict()
         return data
 
 
 class JobRanker:
+    """Score and rank canonical jobs against a search profile."""
 
     def __init__(
         self,
@@ -33,30 +41,40 @@ class JobRanker:
             target_locations=target_locations,
         )
 
+    def score(self, job: CanonicalJob) -> RankedJob:
+        match = self.matcher.score_job(job)
+        return RankedJob(job=job, match=match)
+
     def rank(
         self,
-        jobs: Iterable,
+        jobs: Iterable[CanonicalJob],
         limit: int = None,
-    ) -> List[RankedJob]:
+    ) -> list[RankedJob]:
+        if limit is not None and limit <= 0:
+            return []
 
-        ranked = []
+        ranked = [self.score(job) for job in jobs or []]
 
-        for job in jobs or []:
-            match = self.matcher.score_job(job)
+        ranked.sort(key=self._sort_key, reverse=True)
 
-            ranked.append(
-                RankedJob(
-                    job=job,
-                    match=match,
-                )
-            )
+        for index, item in enumerate(ranked, start=1):
+            item.rank = index
 
-        ranked.sort(
-            key=lambda item: item.score,
-            reverse=True,
+        return ranked[:limit] if limit is not None else ranked
+
+    @staticmethod
+    def _sort_key(item: RankedJob):
+        job = item.job
+
+        posted_at = job.posted_at
+        posted_timestamp = (
+            posted_at.timestamp() if posted_at is not None else 0.0
         )
 
-        if limit is not None:
-            return ranked[:limit]
-
-        return ranked
+        return (
+            item.match.score,
+            item.match.title_score,
+            item.match.skill_score,
+            item.match.location_score,
+            posted_timestamp,
+        )

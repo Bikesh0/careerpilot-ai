@@ -1,50 +1,41 @@
-﻿from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass
 
 from app.search.v2.dedupe import deduplicate_jobs
+from app.search.v2.job import CanonicalJob
 from app.search.v2.normalizer import normalize_job
 from app.search.v2.registry import create_sources
-from app.search.v2.job import CanonicalJob
 
 
 @dataclass
 class SourceRunResult:
     source: str
-    jobs: List[CanonicalJob]
+    jobs: list[CanonicalJob]
     error: str = ""
 
 
 class SourceRunner:
+    """Execute job sources and return normalized, deduplicated jobs."""
 
     def __init__(self, sources=None):
-        self.sources = sources if sources is not None else create_sources()
+        self.sources = (
+            list(sources)
+            if sources is not None
+            else create_sources()
+        )
 
-    def run_source(self, source) -> SourceRunResult:
-        source_name = getattr(
+    @staticmethod
+    def _source_name(source) -> str:
+        return getattr(
             source,
             "SOURCE",
             source.__class__.__name__,
         )
 
+    def run_source(self, source) -> SourceRunResult:
+        source_name = self._source_name(source)
+
         try:
             raw_jobs = source.search() or []
-
-            jobs = []
-
-            for raw_job in raw_jobs:
-                try:
-                    jobs.append(normalize_job(raw_job))
-                except Exception as error:
-                    print(
-                        f"[{source_name}] "
-                        f"normalization failed: {error}"
-                    )
-
-            return SourceRunResult(
-                source=source_name,
-                jobs=jobs,
-            )
-
         except Exception as error:
             return SourceRunResult(
                 source=source_name,
@@ -52,7 +43,32 @@ class SourceRunner:
                 error=str(error),
             )
 
-    def run(self) -> List[CanonicalJob]:
+        jobs = []
+
+        for raw_job in raw_jobs:
+            try:
+                job = normalize_job(raw_job)
+
+                if job.title and job.url:
+                    jobs.append(job)
+
+            except Exception as error:
+                print(
+                    f"[{source_name}] "
+                    f"normalization failed: {error}"
+                )
+
+        print(
+            f"[{source_name}] "
+            f"normalized {len(jobs)} jobs"
+        )
+
+        return SourceRunResult(
+            source=source_name,
+            jobs=jobs,
+        )
+
+    def run(self) -> list[CanonicalJob]:
         all_jobs = []
 
         for source in self.sources:
@@ -67,4 +83,11 @@ class SourceRunner:
 
             all_jobs.extend(result.jobs)
 
-        return deduplicate_jobs(all_jobs)
+        unique_jobs = deduplicate_jobs(all_jobs)
+
+        print(
+            f"V2 collected "
+            f"{len(unique_jobs)} unique jobs"
+        )
+
+        return unique_jobs

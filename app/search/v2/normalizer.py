@@ -1,177 +1,191 @@
-﻿from datetime import datetime
+from datetime import datetime
 
 from .job import CanonicalJob
 
 
-def normalize_job(raw) -> CanonicalJob:
-    """
-    Convert the existing V1 Job model or a compatible object
-    into the V2 canonical job representation.
+def _value(raw, name, default=""):
+    if isinstance(raw, dict):
+        return raw.get(name, default)
+    return getattr(raw, name, default)
 
-    The normalizer preserves useful V1 fields instead of
-    discarding them.
-    """
 
-    def value(name, default=""):
-        result = getattr(raw, name, default)
+def _normalize_skills(skills_raw):
+    """Normalize skills while preserving first-seen spelling and order."""
 
-        if result is None:
-            return default
+    if not skills_raw:
+        return []
 
-        return result
+    if isinstance(skills_raw, str):
+        skills_raw = [skills_raw]
 
-    source_id = str(
-        value("source_id", "")
-    ).strip()
+    skills = []
+    seen = set()
 
-    employment_type = str(
-        value("employment_type", "")
-    ).strip()
+    try:
+        for skill in skills_raw:
+            cleaned = str(skill).strip()
 
-    workplace_type = str(
-        value("workplace_type", "")
-    ).strip()
+            if not cleaned:
+                continue
 
-    posted_at_raw = value(
-        "posted_at",
-        "",
-    )
+            key = cleaned.casefold()
 
-    posted_at = None
+            if key in seen:
+                continue
 
-    if isinstance(
-        posted_at_raw,
-        datetime,
-    ):
-        posted_at = posted_at_raw
+            seen.add(key)
+            skills.append(cleaned)
 
-    elif posted_at_raw:
+    except TypeError:
+        return []
 
-        try:
-            posted_at = datetime.fromisoformat(
-                str(posted_at_raw)
-                .replace("Z", "+00:00")
-            )
+    return skills
 
-        except (
-            TypeError,
-            ValueError,
-        ):
-            posted_at = None
 
-    skills_raw = value(
-        "skills",
-        [],
-    )
+def _normalize_tags(tags_raw):
+    """Normalize tags while preserving first-seen spelling and order."""
 
-    if isinstance(
-        skills_raw,
-        str,
-    ):
-        skills = [
-            skills_raw.strip()
-        ] if skills_raw.strip() else []
+    if not tags_raw:
+        return []
 
-    else:
-        try:
-            skills = [
-                str(skill).strip()
-                for skill in skills_raw
-                if str(skill).strip()
-            ]
+    if isinstance(tags_raw, str):
+        tags_raw = [tags_raw]
 
-        except TypeError:
-            skills = []
+    tags = []
+    seen = set()
 
-    workplace_lower = workplace_type.lower()
+    try:
+        for tag in tags_raw:
+            cleaned = str(tag).strip()
 
-    remote = None
+            if not cleaned:
+                continue
 
-    if workplace_lower in {
+            key = cleaned.casefold()
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            tags.append(cleaned)
+
+    except TypeError:
+        return []
+
+    return tags
+
+
+def _normalize_posted_at(value):
+    if isinstance(value, datetime):
+        return value
+
+    if not value:
+        return None
+
+    try:
+        return datetime.fromisoformat(
+            str(value).replace("Z", "+00:00")
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_remote(raw):
+    workplace = str(
+        _value(raw, "workplace_type", "") or ""
+    ).strip().casefold()
+
+    if workplace in {
         "remote",
         "fully remote",
         "remote work",
     }:
-        remote = True
+        return True
 
-    elif workplace_lower in {
+    if workplace in {
         "onsite",
         "on-site",
         "office",
         "hybrid",
     }:
-        remote = workplace_lower == "remote"
+        return False
+
+    return None
+
+
+def normalize_job(raw) -> CanonicalJob:
+    """Convert V1 Job objects or compatible dictionaries to CanonicalJob."""
 
     return CanonicalJob(
         title=str(
-            value("title")
+            _value(raw, "title", "") or ""
         ).strip(),
 
         company=str(
-            value("company")
+            _value(raw, "company", "") or ""
         ).strip(),
 
         location=str(
-            value("location")
+            _value(raw, "location", "") or ""
         ).strip(),
 
         url=str(
-            value("url")
+            _value(raw, "url", "") or ""
         ).strip(),
 
         source=str(
-            value("source", "unknown")
+            _value(raw, "source", "unknown") or "unknown"
         ).strip(),
 
         description=str(
-            value("description")
+            _value(raw, "description", "") or ""
         ).strip(),
 
-        external_id=(
-            source_id
-            or None
+        external_id=str(
+            _value(raw, "source_id", "") or ""
+        ).strip() or None,
+
+        employment_type=str(
+            _value(raw, "employment_type", "") or ""
+        ).strip() or None,
+
+        remote=_normalize_remote(raw),
+
+        salary_min=_value(raw, "salary_min", None),
+
+        salary_max=_value(raw, "salary_max", None),
+
+        salary_currency=_value(
+            raw,
+            "salary_currency",
+            None,
         ),
 
-        employment_type=(
-            employment_type
-            or None
+        posted_at=_normalize_posted_at(
+            _value(raw, "posted_at", None)
         ),
 
-        remote=remote,
+        skills=_normalize_skills(
+            _value(raw, "skills", [])
+        ),
 
-        posted_at=posted_at,
-
-        skills=skills,
+        tags=_normalize_tags(
+            _value(raw, "tags", [])
+        ),
     )
 
 
-def normalize_jobs(
-    jobs,
-) -> list[CanonicalJob]:
-    """
-    Normalize multiple jobs while skipping invalid records.
-    """
-
+def normalize_jobs(jobs) -> list[CanonicalJob]:
     normalized = []
 
-    for job in jobs or []:
-
+    for raw in jobs or []:
         try:
+            job = normalize_job(raw)
 
-            item = normalize_job(
-                job
-            )
-
-            if (
-                item.title
-                and item.url
-            ):
-                normalized.append(
-                    item
-                )
+            if job.title and job.url:
+                normalized.append(job)
 
         except Exception:
-
             continue
 
     return normalized

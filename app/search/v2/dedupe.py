@@ -1,22 +1,26 @@
-﻿from collections import OrderedDict
+from collections.abc import Iterable
 
 from .job import CanonicalJob
 
 
-def deduplicate_jobs(jobs: list[CanonicalJob]) -> list[CanonicalJob]:
-    """
-    Deduplicate jobs while preserving discovery order.
+def deduplicate_jobs(
+    jobs: Iterable[CanonicalJob],
+) -> list[CanonicalJob]:
+    """Remove duplicate canonical jobs while preserving first-seen order."""
 
-    A source-specific external ID is preferred. Otherwise the
-    normalized title/company/URL combination is used.
-    """
+    seen: set[str] = set()
+    unique: list[CanonicalJob] = []
 
-    unique = OrderedDict()
+    for job in jobs or []:
+        if not isinstance(job, CanonicalJob):
+            continue
 
-    for job in jobs:
         key = job.dedupe_key()
 
-        if key not in unique:
-            unique[key] = job
+        if key in seen:
+            continue
 
-    return list(unique.values())
+        seen.add(key)
+        unique.append(job)
+
+    return unique

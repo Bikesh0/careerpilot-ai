@@ -1,10 +1,11 @@
-﻿from typing import Iterable, List
+from typing import Iterable
 
-from app.search.v2.runner import SourceRunner
 from app.search.v2.ranking import JobRanker, RankedJob
+from app.search.v2.runner import SourceRunner
 
 
 class V2SearchService:
+    """Application-facing V2 search service."""
 
     def __init__(
         self,
@@ -21,14 +22,12 @@ class V2SearchService:
             target_locations=target_locations,
         )
 
-    def search(
-        self,
-        limit: int = 50,
-    ) -> List[RankedJob]:
-
+    def search(self, limit: int = 50) -> list[RankedJob]:
         jobs = self.runner.run()
+        return self.ranker.rank(jobs, limit=limit)
 
-        return self.ranker.rank(
-            jobs,
-            limit=limit,
-        )
+    def search_jobs(self, limit: int = 50) -> list[dict]:
+        return [
+            item.to_dict()
+            for item in self.search(limit=limit)
+        ]
