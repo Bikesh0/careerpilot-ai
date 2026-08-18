@@ -25,10 +25,11 @@ V2SearchService.search()                                        |
         |                                                       |
         v                                                       |
 SourceRunner.run()                                               |
-   |-- Duunitori                                                 |
-   |-- Jobly                                                     |
+   |-- Jobly (crawl-delay compliant, see DATA_SOURCES.md)        |
    |-- Tyomarkkinatori (currently 0 results, see DATA_SOURCES.md)|
    |-- Work in Finland (currently 0 results, see DATA_SOURCES.md)|
+   (Duunitori is implemented but deliberately unregistered -      |
+    its robots.txt disallows this scraper, see DATA_SOURCES.md)  |
         |                                                       |
         v                                                       |
 normalize_job() -> CanonicalJob                                  |
@@ -85,9 +86,11 @@ around `tests/test_profile_integrity.py`.)
   `normalized_title|normalized_company|normalized_location`. This is
   deliberately conservative - see "Known dedupe limitation" below.
 - **`registry.py`** - the list of source classes V2 knows about
-  (`SOURCE_REGISTRY`), currently `DuunitoriSource`, `JoblySource`,
-  `TyomarkkinatoriSource`, `WorkInFinlandSource` from
-  `app/search/sources/web_sources.py`.
+  (`SOURCE_REGISTRY`), currently `JoblySource`, `TyomarkkinatoriSource`,
+  `WorkInFinlandSource` from `app/search/sources/web_sources.py`.
+  `DuunitoriSource` also exists there and is fully implemented/tested,
+  but is deliberately not in `SOURCE_REGISTRY` - its `robots.txt`
+  disallows this scraper's user-agent, see `docs/DATA_SOURCES.md`.
 - **`runner.py`** - `SourceRunner` calls `.search()` on every registered
   source. A source raising an exception is caught, logged, and skipped -
   it does not stop the other sources. Results are normalized and
@@ -106,8 +109,9 @@ around `tests/test_profile_integrity.py`.)
 ### V1 search (`app/search/manager.py`, `app/search/sources/`)
 
 `SearchManager` predates V2. It runs its own fixed list of sources
-(`AshbySource`, `GreenhouseSource`, `RemoteJobSource`, `DuunitoriSource`,
-`JoblySource` - note: not Tyomarkkinatori or Work in Finland), does its own
+(`AshbySource`, `GreenhouseSource`, `RemoteJobSource`, `JoblySource` -
+note: not Tyomarkkinatori or Work in Finland, and no longer
+`DuunitoriSource` either - see `docs/DATA_SOURCES.md`), does its own
 three-tier deduplication (source id, canonical URL, content fingerprint),
 and assigns each job a local integer `.id` based on its position in
 `self.latest_jobs`. `SearchManager.get_job(job_id)` is a plain list index
@@ -272,12 +276,14 @@ scoring as a genuine fallback when it doesn't. Both classes are unchanged
 
 **Known consequence of this design, not yet resolved**: V2's matcher
 still lacks V1's Finnish-language title terms, exclusion list, and
-experience-requirement penalties. A Duunitori posting titled entirely in
-Finnish (e.g. `"tietoturva-asiantuntija"` with no English equivalent
-elsewhere in the title) will score lower under V2's presentation than it
-would have under V1's - this is a real, live behavior difference between
-"V2 succeeded" and "V2 disabled," not a bug in the integration itself.
-Porting those specific V1 capabilities into V2's matcher (see
+experience-requirement penalties. A job titled entirely in Finnish (e.g.
+`"tietoturva-asiantuntija"` with no English equivalent elsewhere in the
+title - a real example from Duunitori, now unregistered, but the same
+class of posting also appears on Jobly/Tyomarkkinatori) will score lower
+under V2's presentation than it would have under V1's - this is a real,
+live behavior difference between "V2 succeeded" and "V2 disabled," not a
+bug in the integration itself. Porting those specific V1 capabilities
+into V2's matcher (see
 `docs/MATCHING_AND_RANKING.md`) would close this gap without reintroducing
 the two-presentation-layer problem, since the adapter here doesn't care
 which matcher's logic V2 uses internally - only that V2 owns its own

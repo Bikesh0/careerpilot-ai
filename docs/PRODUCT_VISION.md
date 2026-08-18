@@ -101,9 +101,20 @@ information.
 Both currently return zero results because their job listings are loaded
 by client-side JavaScript, not present in the static HTML this project's
 scraper fetches (root-caused in `docs/DATA_SOURCES.md`, not assumed).
-Fixing this needs either their internal JSON API (undocumented, would
-need to be reverse-engineered from real browser traffic) or a headless
-browser dependency (Playwright/Selenium - neither currently installed).
+
+Tyomarkkinatori's internal JSON API was found via real browser network
+inspection and a working scraper against it was built and verified live
+- then deliberately not shipped, because the site's `robots.txt`
+explicitly disallows `/api/`. Fixing this for real now needs explicit
+permission from Tyomarkkinatori (an official API/data-sharing agreement),
+not more engineering - see `docs/DATA_SOURCES.md` and `NEXT_TASKS.md`
+Priority 2.
+
+Work in Finland's listings appear to already be sourced from Jobly
+(company logo assets load directly from `jobly.fi`), so a separate
+scraper likely wouldn't add meaningful new coverage beyond the existing
+`JoblySource` - worth confirming rigorously before investing further
+effort either way.
 
 ## Planned: merge extracted CV data into the profile
 

@@ -1,5 +1,55 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-18 - robots.txt compliance: Duunitori disabled, Jobly crawl-delay added
+
+Continuing down `NEXT_TASKS.md` Priority 2, used real browser network
+inspection (the `claude-in-chrome` tool) to investigate Tyomarkkinatori
+and Work in Finland's zero-result sources. Found Tyomarkkinatori's
+internal JSON search API (`POST /api/jobpostingfulltext/search/v2/search`),
+confirmed it unauthenticated and working, and built and verified a full
+`TyomarkkinatoriSource` implementation against it live (4 real,
+correctly-matched jobs). **Did not ship it**: `tyomarkkinatori.fi/robots.txt`
+explicitly disallows `/api/`. Reverted the implementation rather than
+commit it, since a public/unauthenticated endpoint doesn't override the
+site's stated crawling policy. Also found, via the same network
+inspection, that Work in Finland's "Open jobs" widget loads company-logo
+assets directly from `jobly.fi` - strong evidence its listings are
+already covered by the existing `JoblySource`, making a separate scraper
+low-value.
+
+While checking `robots.txt` for these two, checked it for the two
+already-shipped sources too - and found a real, live compliance problem
+in the project's **largest** source:
+
+- **`duunitori.fi/robots.txt`** disallows the generic `*` user-agent
+  group entirely (`Disallow: /`), with exceptions only for a named
+  allowlist of crawlers (Googlebot, Bingbot, etc.). `DuunitoriSource`
+  sends a spoofed generic browser User-Agent, matching none of those
+  exceptions - it had been running (and was fixed and re-verified
+  multiple times) in violation of that policy for this entire session,
+  because `robots.txt` was never checked until now. Reported directly
+  rather than silently patched or silently left running. **At the
+  user's explicit direction, `DuunitoriSource` is now disabled** -
+  unregistered from `app/search/v2/registry.py`'s `SOURCE_REGISTRY` and
+  `app/search/manager.py`'s `SearchManager.searchers`. The class, its
+  title-extraction fix, and its tests are untouched, so re-enabling it
+  is a one-line change once compliance is actually resolved (permission
+  from Duunitori, and/or an honestly-identifying User-Agent). A live V2
+  search now collects 14 jobs (all Jobly), down from 45 - an explicit,
+  reported tradeoff, not a silent regression.
+- **`jobly.fi/robots.txt`** specifies `Crawl-delay: 10` for the generic
+  group, which the scraper wasn't honoring at all. Fixed:
+  `JoblySource.get_page()` now sleeps 10 seconds after every request. A
+  full Jobly search (14 terms + one detail fetch per matching job) now
+  takes several minutes instead of seconds - the accepted cost of
+  compliance, per the user's explicit choice to add it.
+
+Added `tests/test_robots_txt_compliance.py` (3 tests): Duunitori is
+excluded from both the V1 and V2 source lists; Jobly's `get_page()`
+sleeps for the crawl delay on every call. Live-verified end to end
+through the actual Flask dashboard after both changes: status 200, 14
+real jobs, correctly matched and ranked. Full suite: 57 passed (was 54).
+
 ## 2026-08-18 - Consolidate the two Ollama wrapper classes
 
 Continuing down `NEXT_TASKS.md` Priority 6: `app/ai/llm.py`'s `LocalLLM`

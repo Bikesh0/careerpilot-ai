@@ -16,7 +16,7 @@ temp dir); redirecting to a project-local `.pytest-tmp/` sidesteps it.
 It's optional in a normal environment - `pytest -q` on its own works fine
 there.
 
-**Current result: 39 passed**, in well under a second. No test in the
+**Current result: 57 passed**, in well under a second. No test in the
 suite performs a live network request or calls Ollama.
 
 ## What's covered, by file
@@ -34,6 +34,7 @@ suite performs a live network request or calls Ollama.
 | `test_sidebar_navigation.py` | Every link in `templates/base.html`'s sidebar resolves without a 404 - a direct regression test for four routes (`/resume`, `/coverletter`, `/interview`, `/settings`) that had no matching Flask route at all |
 | `test_cv_upload.py` | `/settings/upload-cv`: rejects unsupported extensions, requires a file, extracts and displays real `.docx` data end to end (with `ProfileExtractor.extract` mocked to avoid an Ollama dependency in the automated suite), degrades gracefully when AI extraction fails, and verifies a malicious filename (`"../../evil.docx"`) cannot escape the upload directory - the saved file is always named by a fresh UUID, never by client input |
 | `test_ranking_unification.py` | The dashboard renders V2's own score and reason strings (not a legacy re-score) when V2 succeeds - proven with a job description that would score very differently under the legacy matcher, and reason text ("Target job title matched") only V2's matcher ever produces; V2's ranking order is preserved (no re-sort); legacy mode is untouched when V2 is disabled (no V2-only text ever appears, `manager.search_jobs()` is confirmed as the actual source); presentation-adapter failures fall back to the legacy matcher instead of crashing; save/generate/cover-letter routes still resolve V2 jobs correctly through the new presentation path |
+| `test_robots_txt_compliance.py` | `DuunitoriSource` is not registered in either V1's `SearchManager.searchers` or V2's `SOURCE_REGISTRY` (its `robots.txt` disallows this scraper's user-agent - see `docs/DATA_SOURCES.md`); `JoblySource.get_page()` sleeps for its `robots.txt`-specified `Crawl-delay` after every request (mocked, doesn't actually sleep in the suite) |
 | `test_greenhouse_source.py` | `GreenhouseSource` field mapping against a mocked HTTP response |
 | `test_persistence_integration.py`, `test_v1_search_integration.py` | V1 search + SQLite persistence, against a temporary database |
 | `test_suitability.py`, `test_filter_and_matching.py` | V1 job-suitability scoring and filtering |

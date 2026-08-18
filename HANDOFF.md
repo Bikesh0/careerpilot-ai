@@ -11,52 +11,71 @@
 
 ## Current state
 
-The full project-completion pass is done, plus five follow-up fixes made
+The full project-completion pass is done, plus six follow-up fixes made
 while continuing autonomously down `NEXT_TASKS.md`: a user-reported
 saved-jobs bug, a self-discovered navigation bug, the CV upload feature,
-unifying V1/V2 ranking on the dashboard, and - most recently -
-consolidating the two Ollama wrapper classes.
+unifying V1/V2 ranking on the dashboard, consolidating the two Ollama
+wrapper classes, and - most recently, and most significant - a
+`robots.txt` compliance investigation that led to **disabling
+Duunitori**, the project's largest job source.
 
-## Most recent: Ollama wrapper consolidation
+## Most recent, and most important: robots.txt compliance
 
-`app/ai/llm.py`'s `LocalLLM` and `app/ai/ai_engine.py`'s `AIEngine` were
-two independent implementations of the same fail-soft local-model
-pattern. Gave `LocalLLM.ask()` an optional `system` parameter (backward
-compatible), migrated all three `AIEngine` call sites
-(`ResumeBuilder`, `CoverLetterBuilder`, `ProfileExtractor`) onto
-`LocalLLM`, and removed `ai_engine.py` entirely (confirmed unused
-elsewhere first). Side effect, verified live: `AIEngine` had a hardcoded
-`model="llama3.1"` with no auto-detection; `LocalLLM` auto-detects the
-actually-installed model, so this is a small real improvement, not just
-a refactor. All three call sites still degrade gracefully within the
-configured `OLLAMA_TIMEOUT`, verified live. No test changes needed (the
-suite mocks at the builder-method level). Full suite: 54 passed
-(unchanged - this was a pure internal consolidation).
+Investigating `NEXT_TASKS.md` Priority 2 (the two zero-result sources)
+using real browser network inspection (`claude-in-chrome`):
+
+- Found Tyomarkkinatori's internal JSON API, built and verified a
+  working scraper against it live - then **reverted, did not ship it**,
+  because `tyomarkkinatori.fi/robots.txt` disallows `/api/`.
+- Found Work in Finland's "Open jobs" widget loads assets from
+  `jobly.fi` - likely redundant with the existing `JoblySource`.
+- Checking `robots.txt` for these two prompted checking it for the
+  already-shipped sources too. **`duunitori.fi/robots.txt` disallows the
+  generic `*` user-agent group entirely.** `DuunitoriSource`'s spoofed
+  browser User-Agent doesn't match any of the site's named, allowlisted
+  crawlers, so it falls under that blanket disallow - and had been
+  running in violation of it for this entire session (including through
+  a title-extraction bug fix and re-verification earlier today),
+  because `robots.txt` was never checked until this point.
+
+**This was reported directly to the user, not silently fixed or
+silently left running.** Given the significant, real tradeoff (Duunitori
+had been the largest source - roughly half of collected jobs), I asked
+explicitly how to proceed rather than deciding unilaterally. The user
+chose to disable Duunitori and to add Jobly's missing `Crawl-delay: 10`
+compliance.
+
+**Action taken**: `DuunitoriSource` unregistered from both
+`app/search/v2/registry.py` and `app/search/manager.py` (class and tests
+untouched - a one-line change to re-enable once resolved).
+`JoblySource.get_page()` now sleeps 10s after every request. Both
+verified live: a real dashboard load now returns 14 jobs (all Jobly,
+correctly matched/ranked), down from 45 with Duunitori active - an
+explicit, reported change, not a silent regression. New tests:
+`tests/test_robots_txt_compliance.py` (3).
 
 ## Everything completed this session, most recent first
 
-1. **Ollama wrapper consolidation** (above).
-2. **V1/V2 ranking unification** - the dashboard now shows V2's own
-   score/matched-skills/reasons whenever V2 search succeeds (verified
-   live against the real profile: top result "Staff Security Engineer"
-   at 74% with V2's exact reason strings), instead of always re-scoring
-   through the legacy matcher. Legacy mode is untouched when V2 is
-   disabled or fails. See `docs/ARCHITECTURE.md`'s "The V1/V2 split."
-   Known, now-visible tradeoff logged as `NEXT_TASKS.md` Priority 1:
-   V2's matcher still lacks V1's Finnish-language title terms, exclusion
-   list, and experience-requirement penalties.
-3. **CV upload** - `/settings` + `/settings/upload-cv`, safe file
-   handling (UUID filenames, path-traversal-proof, verified), 10MB cap,
-   review-only (never auto-writes to `profiles/profile.json`).
-4. **Broken sidebar navigation** - 4 of 8 links 404'd; fixed, two
-   dead/duplicate templates removed.
-5. **Saved jobs not saving correctly** (user-reported) - no duplicate
-   detection on the actual save path, and `job_url` silently dropped.
-   Both fixed.
+1. **robots.txt compliance** (above) - Duunitori disabled, Jobly
+   crawl-delay added, Tyomarkkinatori API investigated and deliberately
+   not shipped.
+2. **Ollama wrapper consolidation** - `AIEngine` removed, everything
+   migrated onto `LocalLLM`; fixed a real behavior gap (model
+   auto-detection) as a side effect.
+3. **V1/V2 ranking unification** - dashboard shows V2's own scoring when
+   V2 succeeds, instead of always re-scoring through the legacy matcher.
+   Known, now-visible tradeoff logged: V2 still lacks V1's
+   Finnish-language title terms/exclusion list/experience penalties
+   (`NEXT_TASKS.md` Priority 1).
+4. **CV upload** - `/settings` + `/settings/upload-cv`, safe file
+   handling, review-only (never auto-writes to `profiles/profile.json`).
+5. **Broken sidebar navigation** - 4 of 8 links 404'd; fixed.
+6. **Saved jobs not saving correctly** (user-reported) - duplicate
+   detection and `job_url` persistence both fixed.
 
 ## Verification
 
-Test result: **54 passed**, run via:
+Test result: **57 passed**, run via:
 ```powershell
 $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
@@ -64,45 +83,50 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 
 Repo-wide `python -m compileall app tests *.py`: clean.
 
+Live-verified through the real Flask dashboard after the robots.txt
+changes: status 200, 14 real jobs from Jobly, correctly matched/ranked.
+
 ## Documentation updated this round
 
-`docs/AI.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`,
-`docs/TECHNOLOGY_STACK.md` (all `AIEngine` references reframed as
-historical - it no longer exists - plus a stale `CVParser`-not-wired-up
-claim in `TECHNOLOGY_STACK.md` found and fixed, missed in an earlier
-pass), `NEXT_TASKS.md` (Priority 6 removed), `CHANGELOG.md`, this file.
+`docs/DATA_SOURCES.md` (Duunitori section substantially rewritten;
+Jobly's crawl-delay documented; Tyomarkkinatori's API finding documented
+in full), `docs/SECURITY.md` (new "Respecting robots.txt" coverage of
+both findings), `docs/ARCHITECTURE.md`, `docs/PRODUCT_VISION.md`,
+`README.md` (Features, Architecture diagram, Known Limitations, Roadmap -
+all had stale Duunitori-is-active claims), `docs/PORTFOLIO.md` (test
+count fixed in two places - one was already stale before this round; new
+interview answer about the Duunitori finding itself), `docs/TESTING.md`
+(test count fixed - was stale since an earlier session; new test file
+entry), `NEXT_TASKS.md`, `CHANGELOG.md`, `PROJECT_STATE.md`, this file.
 
-## Known, honestly-documented limitations (carried forward)
+## Known, honestly-documented limitations (carried forward + new)
 
+- **Duunitori is disabled** pending explicit permission from Duunitori
+  or a resolved `robots.txt` situation - the single biggest open item
+  now (`NEXT_TASKS.md` Priority 2).
 - V2's matcher lacks V1's Finnish-language title terms, exclusion list,
-  and experience-requirement penalties - a live, visible difference in
-  dashboard results depending on whether V2 succeeded (`NEXT_TASKS.md`
-  Priority 1).
-- Tyomarkkinatori and Work in Finland return 0 results (client-side
-  JavaScript rendering, not TLS - see `docs/DATA_SOURCES.md`).
+  and experience-requirement penalties (`NEXT_TASKS.md` Priority 1).
+- Tyomarkkinatori returns 0 results; a working API integration exists
+  but wasn't shipped for the same `robots.txt`-permission reason as
+  Duunitori.
 - CV upload stops at review; nothing merges extracted data into
   `profiles/profile.json` yet (`NEXT_TASKS.md` Priority 3).
 - `WebActions.latest_resume()`/`latest_cover_letter()` point at the wrong
-  directory relative to where documents are actually generated
-  (`NEXT_TASKS.md` Priority 3b).
-- `ApplicationTracker`'s database path is resolved relative to the
-  current working directory, not the project root.
+  directory (`NEXT_TASKS.md` Priority 3b).
 
 ## Exact next task
 
-Continuing per the user's explicit instruction to proceed through the
-remaining release priorities without stopping: real data from the two
-JS-rendered job sources (`NEXT_TASKS.md` Priority 2 - needs either
-browser-based network inspection to find an internal API, not yet
-attempted, or a scoped decision to add Playwright), then final security
-review, final integration testing, documentation review, and release
-audit, per the user's explicit list. Priority 1 (porting V1 logic into
-V2's matcher) and Priority 3/3b/4/5 remain queued in `NEXT_TASKS.md` in
-priority order for whichever comes next after those.
+Per `NEXT_TASKS.md`, continuing the user's explicit instruction to
+proceed through the remaining release priorities: final security review,
+final integration testing, documentation review, and release audit.
+Priority 2 (Duunitori/Tyomarkkinatori permission) needs the user's own
+outreach to those sites, not more engineering - flagged clearly, not
+blocking other work. Priority 1 (port V1 matching logic into V2) remains
+queued after that.
 
 ## Handoff protocol
 
 Read `README.md` and everything in `docs/` first - both are accurate as
-of this update. The repository and its git history remain the source of
-truth over any prior AI conversation, this file included where they
-disagree.
+of this update, including the robots.txt findings. The repository and
+its git history remain the source of truth over any prior AI
+conversation, this file included where they disagree.

@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from urllib.parse import quote, urljoin, urlparse
 
 import requests
@@ -659,9 +660,25 @@ class JoblySource(WebSourceBase):
 
     BASE_URL = "https://www.jobly.fi"
 
+    # jobly.fi/robots.txt specifies "Crawl-delay: 10" for the generic
+    # user-agent group. This scraper makes one request per search term
+    # plus one per matching job's detail page, so a full search()
+    # call can take several minutes with this delay applied - that is
+    # the deliberate, accepted cost of complying with it rather than
+    # a bug.
+    CRAWL_DELAY_SECONDS = 10
+
     SEARCH_URL = (
         "https://www.jobly.fi/tyopaikat?search={query}"
     )
+
+    def get_page(self, url):
+
+        html = super().get_page(url)
+
+        time.sleep(self.CRAWL_DELAY_SECONDS)
+
+        return html
 
     SEARCH_TERMS = [
         "SOC analyst",

@@ -29,21 +29,62 @@ depending on whether V2 succeeded or fell back to V1 for that request.
       experience-requirement penalty applied) directly against V2's
       matcher.
 
-## Priority 2 - Real data from the two zero-result sources
+## Priority 2 - Source coverage: Duunitori (disabled), Tyomarkkinatori, Work in Finland
 
-- [ ] Tyomarkkinatori and Work in Finland both return 0 jobs because
-      their listings are loaded by client-side JavaScript, not present
-      in the static HTML fetched today - root-caused in
-      `docs/DATA_SOURCES.md`, not a TLS issue (that was disproved this
-      session; do not revisit `verify=False` as a fix).
-- [ ] Investigate whether either site exposes an internal JSON API that
-      could be called directly (would need real browser devtools network
-      inspection to discover, not guessable from static HTML).
-- [ ] If no API is found, evaluate adding Playwright as a scoped,
-      justified new dependency (not currently installed -
-      `app/automation/playwright_bot.py` is an empty placeholder).
-      Weigh this against the added complexity/dependency surface before
-      committing to it.
+Investigated this session with real browser network inspection
+(`claude-in-chrome`), not just static-HTML guessing - see
+`docs/DATA_SOURCES.md` for full detail. All three are now blocked on a
+human/policy decision, not a technical unknown.
+
+- [ ] **Duunitori** (highest impact - this was the largest source of
+      collected jobs): implemented, tested, and was working, but is now
+      **disabled** because `duunitori.fi/robots.txt` disallows this
+      scraper's generic User-Agent (`Disallow: /` for the `*` group,
+      with named exceptions only for specific bots like Googlebot). This
+      was found *after* the scraper had already shipped and been
+      re-verified multiple times this session - not caught proactively.
+      Disabled at the user's explicit direction once reported. To
+      re-enable: get Duunitori's explicit permission (e.g. contact them
+      about an API or crawling exception), and/or switch to an
+      honestly-identifying User-Agent (note: that alone still wouldn't
+      make it compliant under the *current* `robots.txt`, since a
+      non-allowlisted honest crawler still falls under `Disallow: /` -
+      it would need an actual policy change or explicit permission from
+      Duunitori, not just a header change). Then re-add
+      `DuunitoriSource` to both `app/search/v2/registry.py`'s
+      `SOURCE_REGISTRY` and `app/search/manager.py`'s
+      `SearchManager.searchers`, and re-verify live.
+- [ ] **Tyomarkkinatori**: its internal JSON search API was found,
+      confirmed working, and a full `TyomarkkinatoriSource`
+      implementation against it was built and verified live (4 real,
+      correctly-matched jobs from companies not covered by
+      Duunitori/Jobly) - then **reverted, not shipped**, because
+      `tyomarkkinatori.fi/robots.txt` explicitly disallows `/api/`. This
+      needs a human decision: either get explicit permission/an official
+      API agreement from Tyomarkkinatori, or accept this source stays at
+      0 results. Do not re-implement against `/api/` without that
+      permission - the code approach itself already works, this is purely
+      a policy/permission question now.
+- [ ] **Work in Finland**: likely not worth separate investment - its
+      "Open jobs" widget's assets load directly from `jobly.fi`, strongly
+      suggesting its listings are already covered by the existing
+      `JoblySource`. Worth a rigorous side-by-side comparison before
+      fully closing this out, but do not prioritize building a scraper
+      for it without first confirming meaningful non-overlap with Jobly.
+- [ ] Playwright/headless-browser automation remains untaken for all
+      three - not because it's technically hard, but because it
+      wouldn't change the `robots.txt` situation for Duunitori or
+      Tyomarkkinatori (a headless browser hitting the same disallowed
+      path/user-agent group is still disallowed automated access) and is
+      unlikely to add value for Work in Finland given the Jobly-overlap
+      finding above.
+- [ ] **Process note for whoever picks this up**: check `robots.txt`
+      for every source - new *and already-shipped* - against the exact
+      path and exact user-agent group the scraper's real request will
+      match, before trusting a source as compliant. This wasn't done
+      proactively for Duunitori/Jobly when they were first built; it
+      should be standard practice from here on, including re-checking
+      periodically since `robots.txt` can change.
 
 ## Priority 3 - Merge reviewed CV data into the profile
 

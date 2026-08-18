@@ -98,6 +98,45 @@ matching, resumes, and cover letters depend on.
 `app/web/actions.py` (`WebActions`) remains unused - nothing in the
 codebase imports it outside its own file.
 
+## Respecting `robots.txt`
+
+This project checks and respects `robots.txt` before scraping a source,
+the same way it never disables TLS verification to make a source "work."
+Two real findings this session, one caught before shipping and one found
+in an already-shipped, heavily-relied-upon source:
+
+- **Tyomarkkinatori** (caught before shipping): its internal JSON search
+  API is unauthenticated and technically reachable, and a working
+  scraper against it was built and verified live (see
+  `docs/DATA_SOURCES.md`). It was reverted rather than shipped, because
+  `tyomarkkinatori.fi/robots.txt` explicitly states `Disallow: /api/`. An
+  endpoint being public and requiring no authentication doesn't override
+  the site operator's stated crawling policy.
+- **Duunitori** (found in already-running code): `duunitori.fi/robots.txt`
+  disallows the generic `*` user-agent group entirely (`Disallow: /`),
+  with specific exceptions only for a named allowlist of crawlers
+  (Googlebot, Bingbot, etc.). `DuunitoriSource` sends a spoofed generic
+  browser `User-Agent`, which matches none of those named exceptions and
+  therefore falls under the `*` group's blanket disallow. This scraper
+  had already been shipped, fixed, and re-verified multiple times
+  earlier in this session before `robots.txt` was checked at all. Once
+  found, it was reported directly rather than silently fixed or silently
+  left running - disabling it was a real tradeoff (it had been the
+  largest single source of collected jobs) and was the user's decision to
+  make, not a unilateral one. It's now unregistered from both V1 and V2
+  search (code intact, not deleted - see `docs/DATA_SOURCES.md` for how
+  to re-enable it correctly).
+
+**Jobly**, by contrast, has a compliant `robots.txt` (no `Disallow` on
+the paths this project scrapes) but specifies `Crawl-delay: 10`, which
+the scraper wasn't honoring - fixed by adding a 10-second pause after
+every request in `JoblySource.get_page()`.
+
+The lesson applied going forward: check `robots.txt` for the *exact*
+user-agent group a scraper's actual request will match (not just
+whichever group looks most permissive) before treating a source as
+compliant, whether it's new or already shipped.
+
 ## AI-generated content
 
 Resume and cover-letter prompts (`app/ai/resume_builder.py`,

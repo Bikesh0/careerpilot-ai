@@ -3,9 +3,22 @@ from app.search.sources.greenhouse_source import GreenhouseSource
 from app.search.sources.ashby_source import AshbySource
 from app.search.search_profile import SearchProfile
 from app.search.sources.web_sources import (
-    DuunitoriSource,
     JoblySource,
 )
+
+# DuunitoriSource is deliberately not registered here.
+#
+# duunitori.fi/robots.txt disallows the generic "*" user-agent group
+# (Disallow: /), and this scraper identifies itself with a spoofed
+# browser User-Agent, not one of the specifically-named crawlers the
+# site allowlists (Googlebot, Bingbot, etc.). It was previously
+# registered and running in violation of that policy. The class itself
+# is unchanged and still fully tested in isolation
+# (tests/test_duunitori_source.py, tests/test_source_domain_guard.py)
+# - only its registration here was removed, so it can be re-enabled
+# once this is resolved (e.g. explicit permission from Duunitori, or
+# an honestly-identifying User-Agent matched against an updated
+# robots.txt). See docs/DATA_SOURCES.md and docs/SECURITY.md.
 
 
 class SearchManager:
@@ -32,7 +45,6 @@ class SearchManager:
             RemoteJobSource(),
 
             # Real Finnish job sources
-            DuunitoriSource(),
             JoblySource(),
         ]
 

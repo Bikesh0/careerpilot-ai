@@ -49,12 +49,13 @@ tests in isolation.
 
 ### Testing
 
-39 tests, fixture/mock-backed, zero live network calls or LLM
+57 tests, fixture/mock-backed, zero live network calls or LLM
 dependencies in the automated suite. Several tests are direct regression
 tests written *because* a specific bug was found and root-caused live
 (e.g. `test_profile_integrity.py`, `test_duunitori_source.py`,
-`test_routes_v2_job_ids.py`) - not generic coverage, but tests that
-encode "this exact failure must not happen again" with the reasoning in
+`test_routes_v2_job_ids.py`, `test_robots_txt_compliance.py`) - not
+generic coverage, but tests that encode "this exact failure must not
+happen again" with the reasoning in
 the docstring.
 
 ### Git / GitHub
@@ -181,7 +182,7 @@ explainable. I also found and fixed a real bug where that AI call had no
 timeout and could hang a web request indefinitely."
 
 **How did you test it?**
-"54 automated tests, all mock/fixture-backed - no live network calls or
+"57 automated tests, all mock/fixture-backed - no live network calls or
 LLM dependency in the suite. Several are regression tests I wrote
 specifically after finding and root-causing a real bug live (a corrupted
 profile file, a scraper reading the wrong title field, broken dashboard
@@ -199,3 +200,21 @@ results directly. Get real data out of the two JS-rendered sources
 merge step for the CV upload feature - it currently stops at showing you
 what it extracted, deliberately, rather than silently rewriting your
 profile."
+
+**Tell me about a mistake you caught in your own work.**
+"Duunitori was the largest of my job sources - the one I'd fixed and
+re-verified multiple times earlier in the same session. I never checked
+its `robots.txt`. While investigating a completely different source
+(Tyomarkkinatori, where I'd found a working internal API but its
+`robots.txt` disallowed it), I decided to check the others too, purely
+for consistency. Duunitori's `robots.txt` disallows the generic
+crawler group entirely, with named exceptions for specific bots -
+Googlebot, Bingbot, and so on - that my scraper's spoofed browser
+User-Agent didn't match. It had been running against that policy the
+whole time. I didn't quietly patch it and move on - I stopped, explained
+exactly what I'd found and why it mattered, and let the person I was
+working with decide whether to disable it, since that's a real product
+tradeoff (it was roughly half the job coverage), not just a code fix.
+They chose to disable it. I think that sequence - catching it, not
+hiding it, and not deciding unilaterally on something with that much
+impact - is the part worth talking about, more than the bug itself."

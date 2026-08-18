@@ -35,8 +35,9 @@ profile data.
 
 Implemented and verified in this repository:
 
-- Multi-source job collection (Duunitori, Jobly; two additional sources are
-  registered but currently return no results — see
+- Multi-source job collection (currently Jobly; two additional registered
+  sources return no results, and a fourth, Duunitori, is implemented but
+  deliberately disabled pending `robots.txt` compliance — see
   [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md))
 - Canonical job normalization and cross-source deduplication (V2 search
   pipeline)
@@ -71,9 +72,10 @@ Profile (profiles/profile.json)
 V2 Search Service  --------------------------------------------+
         |                                                       |
         v                                                       |
-Source Runner  -->  Duunitori / Jobly / Tyomarkkinatori /        |
-                     Work in Finland (each isolated; one         |
-                     source failing doesn't stop the others)     |
+Source Runner  -->  Jobly / Tyomarkkinatori / Work in Finland     |
+                     (each isolated; one source failing doesn't  |
+                     stop the others; Duunitori is implemented   |
+                     but disabled, see docs/DATA_SOURCES.md)     |
         |                                                       |
         v                                                       |
 Normalizer  -->  CanonicalJob                                    |
@@ -243,12 +245,18 @@ docs/                  Full documentation set (this file links to all of it)
 ## Known Limitations
 
 See [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) for source-by-source
-status. In short: Tyomarkkinatori and Work in Finland are JavaScript-rendered
-sites whose job listings are not present in the static HTML this project's
-`requests`+BeautifulSoup scraper fetches - they currently return zero
-results, honestly, rather than partially-broken data. CV upload/extraction
-stops at a review step by design - it never automatically writes to
-`profiles/profile.json`.
+status. In short: Duunitori is fully implemented and was the largest
+source of collected jobs, but is deliberately **disabled** - its
+`robots.txt` disallows this scraper's user-agent, discovered after it had
+already shipped, and it was turned off rather than left running against
+that policy. Tyomarkkinatori and Work in Finland are JavaScript-rendered
+sites whose job listings are not present in the static HTML this
+project's `requests`+BeautifulSoup scraper fetches - they currently
+return zero results, honestly, rather than partially-broken data. A
+working integration for Tyomarkkinatori's own internal API was built and
+verified live, then deliberately not shipped for the same `robots.txt`
+reason. CV upload/extraction stops at a review step by design - it never
+automatically writes to `profiles/profile.json`.
 
 ## Roadmap
 
@@ -262,8 +270,14 @@ stops at a review step by design - it never automatically writes to
   shows V2's own results directly - see
   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); merging reviewed CV data
   into the profile.
-- **Planned**: fetching Tyomarkkinatori/Work in Finland listings via their
-  underlying JSON APIs (or a headless browser) instead of static HTML.
+- **Planned**: resolving Duunitori's disabled status (explicit permission
+  from Duunitori, and/or an honestly-identifying User-Agent, needed
+  before it can be re-registered); getting Tyomarkkinatori's explicit
+  permission to use its internal API (a working integration exists but
+  wasn't shipped - `robots.txt` disallows it without permission);
+  confirming whether Work in Finland's listings genuinely add coverage
+  beyond the existing Jobly source before investing in a separate
+  scraper for it.
 
 ## Portfolio Value
 
