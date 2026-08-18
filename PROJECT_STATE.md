@@ -26,14 +26,16 @@ Feature flag: `CAREERPILOT_SEARCH_V2=1`
 Key modules: `app/search/v2/factory.py`, `service.py`, `runner.py`,
 `normalizer.py`, `dedupe.py`, `job.py`, `matching/`, `ranking/`.
 
-**Important**: the Flask dashboard currently displays scores from the
-legacy `app.ai.matcher.JobMatcher`, not from V2's own matcher - V2 owns
-collection/normalization/dedupe and has its own fully-tested
-matching/ranking, but that scoring isn't what's rendered today. This is a
-real, current architectural state, documented in detail (including the
-two options for resolving it) in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)'s "The V1/V2 split" section.
-Do not treat this as an oversight to silently "fix."
+**Important**: the Flask dashboard now displays V2's own
+score/matched-skills/reasons whenever V2 search succeeds - verified live
+against the real profile. The legacy `app.ai.matcher.JobMatcher` remains
+the presentation layer only when V2 is disabled or V2 search/ranking
+itself fails, unchanged from before. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)'s "The V1/V2 split" for the
+exact mechanism (a stashed `MatchResult` per job, checked by
+`_rank_jobs()`) and "Why two matchers exist instead of one" for the known,
+now-visible remaining gap: V2's matcher still lacks V1's Finnish-language
+title terms, exclusion list, and experience-requirement penalties.
 
 ## Sources
 
@@ -73,7 +75,7 @@ titles/locations with no visible error. Fixed; regression test added
 
 ## Tests
 
-Current test result: **48 passed**
+Current test result: **54 passed**
 
 Run with:
 ```powershell
@@ -81,24 +83,26 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 24 of the 48
+Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 30 of the 54
 tests were added this session, each a direct regression test for a
 specific bug found and fixed: profile corruption, the ranking module
 collision, the Duunitori title bug, the SSRF-adjacent domain guard, the
 broken dashboard job-action links, a saved-jobs duplicate-record bug
-(user-reported), four broken sidebar navigation links, and the new CV
-upload path.
+(user-reported), four broken sidebar navigation links, the CV upload
+path, and the V1/V2 ranking-unification (V2's own score silently
+discarded before reaching the dashboard).
 
 ## Flask
 
 The dashboard works with V2 enabled - verified live (not just read from
-code): dashboard loads, job-action links resolve to real ids, save-job
-persists (without creating duplicates) and shows up under `/applications`,
-every sidebar link resolves without a 404, CV upload extracts and
-displays real `.docx`/`.pdf` data for review, and the resume/cover-letter
-generation routes fail fast and gracefully (503) instead of hanging when
-the local Ollama model is slow/unavailable, verified with a live timed
-test.
+code): dashboard loads and shows V2's own score/matched-skills/reasons
+directly (not a legacy re-score), job-action links resolve to real ids,
+save-job persists (without creating duplicates) and shows up under
+`/applications`, every sidebar link resolves without a 404, CV upload
+extracts and displays real `.docx`/`.pdf` data for review, and the
+resume/cover-letter generation routes fail fast and gracefully (503)
+instead of hanging when the local Ollama model is slow/unavailable,
+verified with a live timed test.
 
 Main web integration: `app/web/routes.py`.
 
@@ -135,20 +139,24 @@ notes.
 
 ## Current milestone
 
-The V2 search pipeline, profile-aware matching (V1 presentation layer +
-V2 pipeline layer), dashboard, saved jobs (duplicate-safe), sidebar
-navigation, CV upload with AI-assisted extraction, and AI document
-generation are all implemented, tested, and verified working end-to-end.
-Nine real bugs found through live investigation across this session
-(six in the initial audit, plus a user-reported saved-jobs bug, a
-self-discovered navigation bug, and a JSON-extraction fragility found
-while wiring up CV upload) are fixed. Documentation is complete and
-accurate as of this update.
+The V2 search pipeline, profile-aware matching (V2 owns dashboard
+presentation when it succeeds; V1 is the tested fallback), dashboard,
+saved jobs (duplicate-safe), sidebar navigation, CV upload with
+AI-assisted extraction, and AI document generation are all implemented,
+tested, and verified working end-to-end. Ten real bugs found through
+live investigation across this session (six in the initial audit, plus a
+user-reported saved-jobs bug, a self-discovered navigation bug, a
+JSON-extraction fragility found while wiring up CV upload, and V2's own
+score being silently discarded before reaching the dashboard) are fixed.
+Documentation is complete and accurate as of this update.
 
 Remaining honestly-scoped work (see
 [NEXT_TASKS.md](NEXT_TASKS.md) and
-[docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)): unifying the V1/V2
-matcher split on the dashboard (a real design decision, not attempted
-unilaterally), getting real data out of the two JS-rendered sources,
-building the review-to-profile merge step for CV data, fixing the
-resume/cover-letter output-directory mismatch, and a skill-gap feature.
+[docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)): porting V1's
+Finnish-language title terms, exclusion list, and experience-requirement
+penalties into V2's matcher so its scoring doesn't regress relative to
+V1's; getting real data out of the two JS-rendered sources; building the
+review-to-profile merge step for CV data; fixing the resume/cover-letter
+output-directory mismatch; and a skill-gap feature (already correctly
+scoped - needs job-requirement extraction, not just exposing existing
+data).

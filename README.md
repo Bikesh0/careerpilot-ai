@@ -85,9 +85,10 @@ Deduplicator                                                     |
 V2 Matcher/Ranker (title, skill, location, seniority scoring) <--+
         |
         v
-Flask dashboard  -->  legacy JobMatcher re-scores the same jobs
-        |              for presentation (see docs/ARCHITECTURE.md
-        |              for why both matchers currently exist)
+Flask dashboard  -->  shows V2's own score/reasons when V2 search
+        |              succeeds; falls back to the legacy JobMatcher
+        |              only when V2 is disabled or itself fails (see
+        |              docs/ARCHITECTURE.md's "The V1/V2 split")
         v
 Save job / Generate resume / Generate cover letter
         |                                   |
@@ -221,10 +222,12 @@ app/
   search/sources/    Scrapers for each job board
   search/            V1 search manager and profile-driven matcher
   ai/                Local LLM wrapper, resume/cover-letter builders,
-                     the presentation-layer JobMatcher used by the dashboard
+                     CV-data extraction, and the legacy JobMatcher used
+                     as the dashboard's presentation layer only when V2
+                     is disabled or itself fails (see docs/ARCHITECTURE.md)
   documents/         Resume/cover-letter document generation (docx)
-  parsers/           CV parsing (PDF/docx text extraction; not yet
-                     wired to a route)
+  parsers/           CV parsing (PDF/docx text extraction), used by
+                     the /settings/upload-cv route
   database/          SQLite connection and application tracking
   services/          Thin orchestration layer used by the Flask routes
   web/                Flask blueprint (routes.py) and dashboard actions
@@ -253,13 +256,14 @@ stops at a review step by design - it never automatically writes to
   save-job/application tracking (duplicate-safe), AI resume and
   cover-letter generation, CV upload with AI-assisted extraction for
   review, automated test suite.
-- **In progress**: unifying the dashboard's presentation ranking (currently
-  the legacy `app.ai.matcher.JobMatcher`) with the V2 matcher's scoring
-  output - see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); merging
-  reviewed CV data into the profile.
+- **In progress**: porting V1 `JobMatcher`'s Finnish-language title terms,
+  exclusion list, and experience-requirement penalties into V2's matcher,
+  so its scoring doesn't regress relative to V1's now that the dashboard
+  shows V2's own results directly - see
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); merging reviewed CV data
+  into the profile.
 - **Planned**: fetching Tyomarkkinatori/Work in Finland listings via their
-  underlying JSON APIs (or a headless browser) instead of static HTML;
-  wiring up CV upload/parsing to a route.
+  underlying JSON APIs (or a headless browser) instead of static HTML.
 
 ## Portfolio Value
 

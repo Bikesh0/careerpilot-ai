@@ -89,12 +89,18 @@ gracefully instead of breaking the application.
 
 ### Software architecture / honest technical debt
 
-Rather than silently picking a side, the coexistence of two matchers (V1
-presentation-layer, V2 pipeline-layer) is documented as a real, current
-architectural state with a clear explanation of why it exists and what
-the two options are for resolving it - the kind of judgment call a
-senior engineer documents rather than either ignores or "fixes" without
-understanding the tradeoffs first.
+The two matchers (V1, V2) weren't silently resolved by picking a winner
+and deleting the other - the gap was documented first (which one
+actually drove the dashboard, and why), then closed with a small,
+targeted integration: the dashboard now uses whichever matcher actually
+produced the job list, decided by data ownership (a stashed match result
+on the job object) rather than by re-checking a feature flag or
+duplicating scoring logic. What V2 still doesn't replicate from V1
+(Finnish-language title terms, an exclusion list, experience-requirement
+penalties) is called out explicitly as a known, currently-live behavior
+difference rather than swept under the "V2 is done" label - the kind of
+judgment call a senior engineer documents rather than either ignores or
+claims is fully resolved before it is.
 
 ### Error handling
 
@@ -123,6 +129,20 @@ because it already had years of informal tuning - Finnish-language title
 terms, an exclusion list, seniority-specific penalties - that V2's
 matcher doesn't have yet. That's an explicit interim state, documented,
 not an accident."
+
+**How did you decide who owns ranking when both a V1 and a V2 matcher
+exist?**
+"I traced the actual data flow first instead of guessing: V2 computed
+its own score and then the dashboard silently discarded it and re-scored
+through V1 every time, regardless of whether V2 had succeeded. The fix
+wasn't to delete either matcher - it was to stop throwing V2's result
+away. Now the job object carries whichever matcher actually produced it,
+and the dashboard reads that instead of re-deciding based on a flag. If
+V2 search fails for any reason, the exact same V1 fallback that existed
+before still runs, untouched. I proved this with tests that use reason
+text only V2's matcher produces, and a job description that V1 and V2
+would score very differently - so a passing test only makes sense if
+V2's real output reached the page."
 
 **How does the search pipeline work?**
 "Each source scrapes its own site into a common `CanonicalJob` shape, one
@@ -161,14 +181,21 @@ explainable. I also found and fixed a real bug where that AI call had no
 timeout and could hang a web request indefinitely."
 
 **How did you test it?**
-"39 automated tests, all mock/fixture-backed - no live network calls or
+"54 automated tests, all mock/fixture-backed - no live network calls or
 LLM dependency in the suite. Several are regression tests I wrote
 specifically after finding and root-causing a real bug live (a corrupted
 profile file, a scraper reading the wrong title field, broken dashboard
-links), each with a docstring explaining the failure it prevents."
+links, a saved-jobs duplicate bug, a silently-discarded V2 score), each
+with a docstring explaining the failure it prevents - and each one I
+verified against the real, live dashboard afterward, not just the test
+suite in isolation."
 
 **What would you improve next?**
-"Unify the two matchers so the dashboard shows V2's own scoring instead
-of the legacy one, get real data out of the two JS-rendered sources
-(probably via their internal APIs), and wire up the CV-upload path that's
-already built but not yet exposed through a route."
+"Port V1's Finnish-language title terms, exclusion list, and
+experience-requirement penalties into V2's matcher, so its scoring
+doesn't regress relative to V1's now that the dashboard shows V2's
+results directly. Get real data out of the two JS-rendered sources
+(probably via their internal APIs), and build the review-to-profile
+merge step for the CV upload feature - it currently stops at showing you
+what it extracted, deliberately, rather than silently rewriting your
+profile."

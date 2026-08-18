@@ -5,18 +5,29 @@ Status as of 2026-08-18, after a full audit-and-fix session. See
 current state. Completed items from the prior version of this file are
 removed rather than left checked - see git history for what they were.
 
-## Priority 1 - Unify V1/V2 ranking on the dashboard
+## Priority 1 - Port V1-only matching logic into V2's matcher
 
-- [ ] Decide between: (a) render V2's `RankedJob.to_dict()` output
-      directly on the dashboard, or (b) port V1 `JobMatcher`'s
-      Finnish-language title terms, exclusion list, and
-      experience-requirement penalties into V2's matcher, then retire V1.
-      Both options and their tradeoffs are documented in
-      `docs/ARCHITECTURE.md`'s "The V1/V2 split" section - read that
-      first, this is a real design decision, not a quick swap.
-- [ ] Whichever direction is chosen, add regression tests covering the
-      specific V1-only behaviors (Finnish title terms, exclusion list,
-      seniority penalties) if they need to be preserved.
+The dashboard now shows V2's own score/matched-skills/reasons whenever
+V2 search succeeds, instead of always re-scoring through the legacy
+matcher - done 2026-08-18 (`app/web/routes.py._present_v2_ranked_jobs()`,
+see `docs/ARCHITECTURE.md`'s "The V1/V2 split"). This closed the
+ranking-ownership gap but opened a real, visible one: V2's matcher still
+lacks V1's Finnish-language title terms, exclusion list, and
+experience-requirement penalties, so a Finnish-titled posting (or an
+obviously-unrelated one V1 would have excluded) now scores differently
+depending on whether V2 succeeded or fell back to V1 for that request.
+
+- [ ] Port `app/ai/matcher.py`'s `SENIORITY_TERMS`-adjacent Finnish
+      title terms, `EXCLUDED_TITLE_TERMS`, and the required-experience
+      regex/penalty into `app/search/v2/matching/matcher.py`, so V2's
+      own scoring doesn't regress relative to V1's when V2 is the
+      source. See `docs/MATCHING_AND_RANKING.md`'s "Known edge cases and
+      limitations" for the exact gap.
+- [ ] Add regression tests in `tests/test_v2_matching_regressions.py`
+      covering the ported behaviors (a Finnish-titled job scoring
+      correctly, an excluded-title job being filtered/penalized,
+      experience-requirement penalty applied) directly against V2's
+      matcher.
 
 ## Priority 2 - Real data from the two zero-result sources
 

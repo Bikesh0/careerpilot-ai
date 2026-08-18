@@ -118,19 +118,26 @@ def _search_jobs(profile=None):
                 f"{len(ranked)} ranked jobs"
             )
 
-            jobs = [
-                item.job
-                for item in ranked
-            ]
+            jobs = []
 
-            # CanonicalJob has no "id" field, and the dashboard's
-            # Generate/Cover Letter/Save actions link to
-            # /generate/<id> etc., which resolve through
-            # manager.get_job(id). Assign local ids the same way
-            # SearchManager.search_jobs() does for V1 jobs, and
-            # register the list so those routes can find them.
-            for index, job in enumerate(jobs):
-                job.id = index
+            for index, item in enumerate(ranked):
+
+                # CanonicalJob has no "id" field, and the dashboard's
+                # Generate/Cover Letter/Save actions link to
+                # /generate/<id> etc., which resolve through
+                # manager.get_job(id). Assign local ids the same way
+                # SearchManager.search_jobs() does for V1 jobs.
+                item.job.id = index
+
+                # Stash the MatchResult V2's own JobRanker already
+                # computed for this job, so _rank_jobs() can reuse it
+                # directly instead of re-scoring through the legacy
+                # matcher. This is what lets V2 own presentation-layer
+                # scoring end to end when it's the actual source of
+                # the job list - see _rank_jobs().
+                item.job._v2_match = item.match
+
+                jobs.append(item.job)
 
             manager.latest_jobs = jobs
 
@@ -158,12 +165,40 @@ def _search_jobs(profile=None):
 
 def _rank_jobs(jobs, profile):
     """
-    Keep the existing presentation ranking layer.
+    Build the dashboard's ranked job list.
 
-    V2 provides improved ingestion and matching data,
-    while the existing matcher continues to provide
-    dashboard-compatible ranked job objects.
+    Ownership is decided by where the job data actually came from,
+    not by re-checking the feature flag: jobs collected via the V2
+    pipeline carry the MatchResult V2's own JobRanker already computed
+    (stashed onto each CanonicalJob by _search_jobs as `_v2_match`).
+    When every job in the list carries one, V2 owns scoring - its
+    score/matched_skills/reasons are reused directly, in the order V2
+    already ranked them, with no second pass through the legacy
+    matcher.
+
+    Jobs with no stashed match - V1 Job objects from the fallback path
+    when V2 is disabled, or when V2 search/ranking itself failed and
+    _search_jobs() fell back to manager.search_jobs() - go through the
+    existing legacy JobMatcher exactly as before. Legacy behavior is
+    completely unchanged whenever V2 isn't the actual source of the
+    job list.
     """
+
+    if jobs and all(
+        getattr(job, "_v2_match", None) is not None
+        for job in jobs
+    ):
+
+        try:
+
+            return _present_v2_ranked_jobs(jobs)
+
+        except Exception as error:
+
+            print(
+                f"V2 result presentation failed, "
+                f"falling back to legacy matcher: {error}"
+            )
 
     try:
 
@@ -179,6 +214,36 @@ def _rank_jobs(jobs, profile):
         )
 
         return []
+
+
+def _present_v2_ranked_jobs(jobs):
+    """
+    Adapt V2's own match results into the dashboard's presentation
+    shape (the same {"job": ..., "match_score": ..., "matched_skills":
+    ...} shape the legacy matcher already produces), without
+    re-scoring or re-sorting - `jobs` is already in V2's ranked order.
+    """
+
+    presented = []
+
+    for job in jobs:
+
+        match = job._v2_match
+
+        job_dict = job.to_dict()
+        job_dict["id"] = job.id
+
+        presented.append(
+            {
+                "job": job_dict,
+                "match_score": round(match.score),
+                "matched_skills": match.matched_skills,
+                "missing_skills": match.missing_skills,
+                "match_reasons": match.reasons,
+            }
+        )
+
+    return presented
 
 
 # =========================================================

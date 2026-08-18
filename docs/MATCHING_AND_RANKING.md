@@ -1,9 +1,15 @@
 # Matching and Ranking
 
-CareerPilot AI currently has **two** independent matchers, described
-separately below. `docs/ARCHITECTURE.md` explains why both exist and which
-one actually drives the dashboard today (short answer: the V1 matcher,
-`app.ai.matcher.JobMatcher`).
+CareerPilot AI has **two** independent matchers, described separately
+below. `docs/ARCHITECTURE.md`'s "The V1/V2 split" explains why both exist
+and, as of this update, **which one actually drives the dashboard for a
+given request**: V2's own matcher/ranker when V2 search succeeds (the
+normal case with `CAREERPILOT_SEARCH_V2=1`), the V1 matcher as a genuine
+fallback when V2 is disabled or its search/ranking itself fails. This
+isn't a permanent 50/50 split by design - it's the result of a deliberate
+integration that gives V2 ownership of its own output without deleting
+V1's more elaborate logic, which V2 doesn't fully replicate yet (see
+"Known edge cases and limitations" below).
 
 ## V2 matcher (`app/search/v2/matching/`)
 
@@ -100,6 +106,15 @@ consistently ranked above generic cloud/DevOps roles with no title match.
 This was verified by running `V2SearchService.search()` directly against
 the live sources, not assumed from reading the code.
 
+**Re-verified through the actual Flask dashboard** after the V1/V2
+ranking-unification change: a live `GET /` with `CAREERPILOT_SEARCH_V2=1`
+against the real profile shows the same top result ("Staff Security
+Engineer", 74%) with V2's own reason strings rendered directly on the
+page ("Target job title matched", "Matched 6 profile skills", "Target
+location matched", "11 profile skills not found") - not the legacy
+matcher's differently-worded output. See `docs/ARCHITECTURE.md`'s "The
+V1/V2 split."
+
 ## V1 matcher - what the dashboard actually shows (`app/ai/matcher.py`)
 
 This is a considerably larger, hand-tuned matcher built specifically for
@@ -150,12 +165,16 @@ silently produced near-flat, uninformative scores for every job.
 ## Known edge cases and limitations
 
 - V2's title matching is binary (100 or 0) with no partial credit for a
-  close-but-not-exact title; V1's tiered system is the more forgiving one
-  and is what users actually see.
+  close-but-not-exact title; V1's tiered system is more forgiving.
 - V2's title/skill matching has no Finnish-language term list; V1's does.
-  Since V1 is what's displayed, this gap is currently masked, but it means
-  `V2SearchService.search()` used directly (its public, tested API) will
-  under-score Finnish-titled postings relative to what the dashboard shows
-  for the same job.
+  **This now has a real, visible effect on the live dashboard**: since
+  the ranking-unification change, a Finnish-titled Duunitori posting
+  (e.g. `"tietoturva-asiantuntija"` with no English title text present)
+  scores lower when V2 search succeeds than it would have when V2 is
+  disabled and V1 takes over. This is an honest tradeoff of giving V2
+  ownership of its own output rather than silently masking the gap
+  behind V1 forever - see `docs/ARCHITECTURE.md`'s "Why two matchers
+  exist instead of one" for the plan to close it (port the missing
+  V1-only logic into V2's matcher).
 - Neither matcher currently reads `employment_type` or `remote` as a
   scoring signal, even though `CanonicalJob` carries both fields.

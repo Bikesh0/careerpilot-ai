@@ -120,54 +120,73 @@ the job list. See "The V1/V2 split" for why this matters.
 
 ### The V1/V2 split (read this if nothing else)
 
-**V2 owns collection, normalization, deduplication, and its own scoring.**
-**The dashboard's displayed score/matched-skills/reasons currently come
-from the older `app.ai.matcher.JobMatcher`, not V2's `JobMatcher`.**
+**Ownership is decided by where the job data actually came from, not by
+re-checking the feature flag.** When V2 search succeeds, the dashboard
+shows V2's own score, matched skills, and reasons - not a legacy-matcher
+re-score of the same job. When V2 is disabled, or V2 search/ranking
+itself fails, the legacy `app.ai.matcher.JobMatcher` is still what
+renders the dashboard, completely unchanged from before.
 
 Concretely, `app/web/routes.py._search_jobs()`:
 
 1. If V2 is enabled, calls `V2SearchService.search()`, which does the full
    V2 pipeline (collect -> normalize -> dedupe -> V2-score -> rank).
-2. Then discards the V2 score/match data and keeps only the
-   `CanonicalJob` objects: `[item.job for item in ranked]`.
-3. Assigns each job a local `.id` (0, 1, 2, ...) and stores the list on
-   `manager.latest_jobs`, so `/generate`, `/coverletter`, and `/save` can
-   resolve it - `CanonicalJob` has no `id` field of its own, and without
-   this step those three routes were broken (see `docs/TESTING.md`,
-   `tests/test_routes_v2_job_ids.py`).
-4. `app/web/routes.py._rank_jobs()` then runs those same `CanonicalJob`
-   objects through the **legacy** `app.ai.matcher.JobMatcher.rank_jobs()`
-   - a considerably larger, hand-tuned matcher with weighted skills,
-   Finnish-language title terms, seniority penalties tailored for a
-   junior/entry-level candidate, and an explicit exclusion list for
-   obviously unrelated roles (marketing, sales, etc.).
+2. Assigns each `CanonicalJob` a local `.id` (0, 1, 2, ...) - it has no
+   `id` field of its own, and `/generate`, `/coverletter`, and `/save`
+   all resolve jobs through it (see `tests/test_routes_v2_job_ids.py`).
+3. **Stashes the already-computed `MatchResult` onto the job itself**
+   (`job._v2_match = item.match`) instead of discarding it, and stores
+   the list on `manager.latest_jobs`.
 
-This is not accidental - it's stated directly in a comment in
-`routes.py`: *"V2 provides improved ingestion and matching data, while
-the existing matcher continues to provide dashboard-compatible ranked
-job objects."* In practice this means:
+`app/web/routes.py._rank_jobs()` then checks whether every job in the
+list carries a stashed `_v2_match`:
 
-- V2's collection/normalization/dedupe improvements (and the Duunitori
-  title-extraction fix made during this session) benefit the dashboard
-  immediately, because they affect the `CanonicalJob` objects everyone
-  downstream consumes.
-- V2's own `JobMatcher`/`JobRanker` scoring is fully implemented, tested,
-  and reachable via `V2SearchService.search()` / `.search_jobs()`, but is
-  **not** what a user sees on the dashboard today.
-- Unifying the two (either by having the dashboard render V2's
-  `RankedJob.to_dict()` output directly, or by porting the V1 matcher's
-  Finnish-language/seniority-penalty logic into V2's matcher) is real,
-  scoped future work - see `docs/PRODUCT_VISION.md`.
+- **If so** (V2 really is the source), `_present_v2_ranked_jobs()` adapts
+  V2's own score/matched_skills/reasons directly into the dashboard's
+  presentation shape, **preserving V2's ranking order** - no re-sort, no
+  second scoring pass through the legacy matcher.
+- **If not** (V2 disabled, or `_search_jobs()` fell back to
+  `manager.search_jobs()` because V2 itself failed), the jobs are plain
+  V1 `Job` objects with no stashed match, and the **exact same**
+  `matcher.rank_jobs(jobs, profile)` call that existed before this change
+  runs - legacy behavior is untouched on that path.
+- If `_present_v2_ranked_jobs()` itself raises for any reason, `_rank_jobs()`
+  catches it and falls back to the legacy matcher rather than crashing
+  the request - the same fail-soft convention used everywhere else in
+  this module.
 
-### Presentation layer (`app/ai/matcher.py`)
+This was a deliberate, scoped integration rather than a rewrite of
+either matcher: V2's collection/normalization/dedupe/matching/ranking
+code is completely unchanged, the legacy `JobMatcher` class is completely
+unchanged (and remains the sole presentation layer for V1), and the only
+new code is the adapter (`_present_v2_ranked_jobs()`) plus the ownership
+check in `_rank_jobs()`. `templates/dashboard.html` also gained a small
+"match reasons" list (rendered when `item.match_reasons` is present -
+only true for V2-presented jobs; a no-op, unchanged rendering for legacy
+dict-based jobs, which never have that key).
 
-`JobMatcher.rank_jobs(jobs, profile)` (the one actually driving the
-dashboard) accepts either dicts or objects, normalizes each job into a
-dict, and produces a list of
-`{"job": {...}, "match_score": 0-100, "matched_skills": [...],
-"title_category": "Primary"|"Secondary"|"Related"|"Security-related"|"Other",
-"seniority": ..., "match_details": {...}}`. See
-`docs/MATCHING_AND_RANKING.md` for the full scoring breakdown.
+### Presentation layer (`app/ai/matcher.py`, `app/web/routes.py`)
+
+Two producers feed the same dashboard shape
+(`{"job": {...}, "match_score": 0-100, "matched_skills": [...], ...}`),
+and `_rank_jobs()` (see "The V1/V2 split" above) picks exactly one per
+request, never both:
+
+- **`_present_v2_ranked_jobs()`** (`app/web/routes.py`) - used when V2
+  is the source. A thin adapter: `job.to_dict()` plus the injected `id`
+  for the `"job"` key, and `match_score`/`matched_skills`/
+  `missing_skills`/`match_reasons` read directly off the stashed
+  `MatchResult`. No scoring logic lives here - it only reshapes data V2
+  already computed.
+- **`JobMatcher.rank_jobs(jobs, profile)`** (`app/ai/matcher.py`) - used
+  for the V1 fallback path, completely unchanged. Accepts either dicts or
+  objects, normalizes each job into a dict, and produces a list of
+  `{"job": {...}, "match_score": 0-100, "matched_skills": [...],
+  "title_category": "Primary"|"Secondary"|"Related"|"Security-related"|"Other",
+  "seniority": ..., "match_details": {...}}`.
+
+See `docs/MATCHING_AND_RANKING.md` for each matcher's actual scoring
+formula.
 
 ### Flask layer (`app/web/routes.py`, `webapp.py`)
 
@@ -241,11 +260,26 @@ words - documented here rather than "fixed" with a riskier heuristic. See
 
 ## Why two matchers exist instead of one
 
-Deleting either matcher outright would have been the wrong call for a
-handover document to write into the plan without evidence: the V1
+Deleting either matcher outright would have been the wrong call: V1
 `JobMatcher` handles cases (Finnish title terms, an explicit exclusion
 list, experience-requirement penalties, seniority-specific mismatch
-penalties) that V2's matcher does not yet implement, and it is what
-currently ships to the user. Removing it in favor of an unfinished V2
-matcher would be a regression, not a cleanup. The two are kept explicitly
-distinct here rather than silently merged.
+penalties) that V2's matcher does not implement. Rather than choosing one
+and discarding real, working functionality, the dashboard now uses
+**whichever matcher actually produced the job list** (see "The V1/V2
+split"): V2's own scoring when V2 search succeeds, V1's more elaborate
+scoring as a genuine fallback when it doesn't. Both classes are unchanged
+- ownership is decided by a thin adapter and a presence check in
+`app/web/routes.py`, not by picking a winner and deleting the other.
+
+**Known consequence of this design, not yet resolved**: V2's matcher
+still lacks V1's Finnish-language title terms, exclusion list, and
+experience-requirement penalties. A Duunitori posting titled entirely in
+Finnish (e.g. `"tietoturva-asiantuntija"` with no English equivalent
+elsewhere in the title) will score lower under V2's presentation than it
+would have under V1's - this is a real, live behavior difference between
+"V2 succeeded" and "V2 disabled," not a bug in the integration itself.
+Porting those specific V1 capabilities into V2's matcher (see
+`docs/MATCHING_AND_RANKING.md`) would close this gap without reintroducing
+the two-presentation-layer problem, since the adapter here doesn't care
+which matcher's logic V2 uses internally - only that V2 owns its own
+output end to end.

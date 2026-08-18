@@ -1,5 +1,60 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-18 - Unify V1/V2 ranking on the dashboard
+
+Continuing down `NEXT_TASKS.md` Priority 1: the dashboard always
+re-scored every job through the legacy `app.ai.matcher.JobMatcher`,
+even when V2 search succeeded and had already computed its own score,
+matched skills, and human-readable reasons for the same jobs -
+`app/web/routes.py._search_jobs()` discarded that `MatchResult` data
+one line after computing it. Traced the complete flow (V2 collection ->
+normalization -> dedupe -> matching -> ranking -> `_search_jobs()` ->
+`_rank_jobs()` -> legacy `JobMatcher` -> `dashboard.html`) before
+changing anything.
+
+Fixed with a small, targeted integration rather than deleting either
+matcher or duplicating scoring logic: `_search_jobs()` now stashes each
+job's already-computed `MatchResult` onto the `CanonicalJob` itself
+(`job._v2_match`, the same dynamic-attribute technique already used for
+`.id`). `_rank_jobs()` checks whether every job in the list carries one;
+if so, a new adapter (`_present_v2_ranked_jobs()`) reshapes V2's own
+score/matched_skills/reasons into the dashboard's existing presentation
+format, preserving V2's ranking order exactly (no re-sort). If not - V2
+disabled, or V2 search/ranking itself failed and `_search_jobs()` fell
+back to `manager.search_jobs()` - the **exact same**
+`matcher.rank_jobs()` call that existed before this change runs,
+completely unchanged. Ownership is decided by where the data actually
+came from, not by re-checking the feature flag.
+
+Added a small "match reasons" list to `dashboard.html` (data that
+already existed on both matchers but was never rendered anywhere) so
+"why was this job recommended" is now genuinely visible, not just
+theoretically available.
+
+Added `tests/test_ranking_unification.py` (6 tests): the dashboard
+shows V2's exact score and reason text (using reason phrasing only V2's
+matcher ever produces, and a job description V1 would score very
+differently, as unambiguous proof); V2's ranking order is preserved;
+legacy mode is provably untouched when V2 is disabled; a presentation
+adapter failure falls back to the legacy matcher instead of crashing;
+save/generate/cover-letter routes still resolve V2 jobs correctly.
+
+**Live-verified against the real profile and the real Flask dashboard**
+(not just the test suite): the same top result from earlier live
+testing ("Staff Security Engineer") now renders with V2's exact score
+(74%) and V2's exact reason strings ("Target job title matched",
+"Matched 6 profile skills", "Target location matched", "11 profile
+skills not found") directly on the page.
+
+**Known, now-visible tradeoff**: V2's matcher still lacks V1's
+Finnish-language title terms, exclusion list, and experience-requirement
+penalties, so a Finnish-titled posting scores differently depending on
+whether V2 succeeded for that request. Logged as `NEXT_TASKS.md`
+Priority 1 (the natural next step, not treated as newly discovered
+scope) rather than silently accepted.
+
+Full suite: 54 passed (was 48).
+
 ## 2026-08-18 - Feature: CV upload with AI-assisted extraction (review-only)
 
 Continuing down `NEXT_TASKS.md` Priority 3: wired up `CVParser`

@@ -11,60 +11,71 @@
 
 ## Current state
 
-The full project-completion pass is done, plus three follow-up fixes
-made while continuing autonomously down `NEXT_TASKS.md`: a user-reported
-saved-jobs bug, a self-discovered broken-navigation bug, and Priority 3
-(CV upload).
+The full project-completion pass is done, plus four follow-up fixes made
+while continuing autonomously down `NEXT_TASKS.md`: a user-reported
+saved-jobs bug, a self-discovered navigation bug, the CV upload feature,
+and - most recently - unifying V1/V2 ranking on the dashboard.
 
-## What's been fixed/built, most recent first
+## Most recent: V1/V2 ranking unification
 
-### 3. CV upload with AI-assisted extraction (review-only)
+**Traced first, before changing code**: V2 search (collection ->
+normalization -> dedupe -> matching -> ranking) already computed its own
+score/matched_skills/reasons per job, but `app/web/routes.py._search_jobs()`
+discarded that `MatchResult` one line after computing it
+(`[item.job for item in ranked]`), and `_rank_jobs()` unconditionally
+re-scored every job through the legacy `app.ai.matcher.JobMatcher`
+regardless of whether V2 had succeeded. That's why the dashboard always
+showed V1 scores.
 
-Wired up `CVParser`/`ProfileExtractor` (previously implemented but
-unreachable) as `GET /settings` + `POST /settings/upload-cv`. Never
-trusts the client-supplied filename beyond its extension - saves to a
-fresh `uuid4().hex` name under `data/cv_uploads/`, verified with a test
-uploading a `"../../evil.docx"` filename. 10MB request-body cap added.
-Deliberately stops at a review display - never auto-writes to
-`profiles/profile.json` (a bad/hallucinated extraction shouldn't be able
-to silently corrupt the profile everything else depends on; the merge
-step is left as an explicit next task). Hardened
-`ProfileExtractor.extract()` (same JSON-in-a-fence fragility already
-fixed twice elsewhere this session) and fixed a PyMuPDF deprecation
-warning in `cv_parser.py`. Verified live with real `.docx` and `.pdf`
-files. Tests: `tests/test_cv_upload.py` (4).
+**Fix**: `_search_jobs()` now stashes each job's `MatchResult` onto the
+`CanonicalJob` itself (`job._v2_match`), the same technique already used
+for `.id`. `_rank_jobs()` checks whether every job in the list carries
+one; if so, a new adapter (`_present_v2_ranked_jobs()`) reshapes V2's own
+data into the dashboard's presentation format, preserving V2's ranking
+order (no re-sort, no re-scoring). If not - V2 disabled, or V2 itself
+failed - the exact same legacy `matcher.rank_jobs()` call that existed
+before runs, unchanged. Neither matcher's own logic was touched; the only
+new code is the adapter and the ownership check. Added a small "match
+reasons" list to `dashboard.html` (data that already existed but was
+never rendered).
 
-### 2. Broken sidebar navigation links
+**Tests**: `tests/test_ranking_unification.py` (6) - V2 score/reasons
+shown correctly (using reason text only V2 ever produces as proof),
+ranking order preserved, legacy mode untouched when disabled, adapter
+failure falls back gracefully, save/generate/cover-letter still resolve
+V2 jobs.
 
-Found while investigating for the CV-upload work: `/resume`,
-`/coverletter` (bare), `/interview`, `/settings` - four of eight sidebar
-links - had no matching route and 404'd. Their two backing templates
-(`resume_template.html`, `cover_template.html`) were confirmed dead and
-one had the same Markdown-fence corruption bug as `profiles/profile.json`
-- both removed. `/resume`/`/coverletter` now redirect to the dashboard;
-`/interview` keeps its honest "Coming soon" stub. Also found (documented,
-not fixed - logged as `NEXT_TASKS.md` Priority 3b):
-`WebActions.latest_resume()`/`latest_cover_letter()` look in the wrong
-directory (`resumes/`/`cover_letters/` vs. the generators' actual
-`output/`). Tests: `tests/test_sidebar_navigation.py`.
+**Live-verified against the real profile through the real Flask
+dashboard** (not just tests): top result "Staff Security Engineer" now
+renders with V2's exact score (74%) and V2's exact reason strings on the
+page.
 
-### 1. Saved jobs not saving correctly (user-reported)
+**Known, now-visible tradeoff, logged not hidden**: V2's matcher still
+lacks V1's Finnish-language title terms, exclusion list, and
+experience-requirement penalties, so results differ slightly depending on
+whether V2 succeeded for a given request. This is `NEXT_TASKS.md`
+Priority 1 now (porting that logic into V2's matcher).
 
-Traced the full flow (dashboard -> `/save/<id>` -> `ApplicationService`
--> `ApplicationTracker` -> SQLite -> `/applications`) and reproduced with
-a Flask test client before changing code. Two real bugs: `save()` (what
-the dashboard actually calls) had no duplicate detection at all, while a
-differently-named sibling method (`save_job()`, used only by the V1 CLI)
-did - clicking "Save Job" twice created two full duplicate rows. Also,
-`job_url` was accepted by `Application`/`ApplicationService` but silently
-dropped - never in the table schema or the `INSERT`. Added a `job_url`
-column and a shared `find_existing()` dedup check (by `job_url`, or
-company+title as a fallback) used by both save methods. Tests:
-`tests/test_dashboard_save_job.py` (4).
+## Everything completed this session, most recent first
+
+1. **V1/V2 ranking unification** (above).
+2. **CV upload** - `/settings` + `/settings/upload-cv`, safe file
+   handling (UUID filenames, path-traversal-proof, verified), 10MB cap,
+   review-only (never auto-writes to `profiles/profile.json`). Hardened
+   `ProfileExtractor` against the same JSON-in-fence fragility fixed
+   twice before. Fixed a PyMuPDF deprecation warning.
+3. **Broken sidebar navigation** - 4 of 8 links 404'd
+   (`/resume`, `/coverletter`, `/interview`, `/settings`); fixed, two
+   dead/duplicate templates removed (one had the profile.json-style
+   fence-corruption bug).
+4. **Saved jobs not saving correctly** (user-reported) - `save()` had no
+   duplicate detection at all (a differently-named sibling method did,
+   but the dashboard never called it), and `job_url` was silently
+   dropped from every save. Fixed both.
 
 ## Verification
 
-Test result: **48 passed**, run via:
+Test result: **54 passed**, run via:
 ```powershell
 $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
@@ -72,22 +83,25 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 
 Repo-wide `python -m compileall app tests *.py`: clean.
 
-## Documentation updated
+## Documentation updated this round
 
-This session's three fixes are reflected in `docs/ARCHITECTURE.md`
-(Persistence, Flask layer, and new CV-upload sections), `docs/SECURITY.md`
-(Path handling - now a live, verified-safe attack surface),
-`docs/PRODUCT_VISION.md` (CV Improvement moved from "not wired up" to
-"IN PROGRESS", with the exact remaining gap named), `docs/AI.md`
-(`ProfileExtractor` hardening), `docs/TESTING.md` (3 new test file
-entries), `README.md`, `CHANGELOG.md`, `NEXT_TASKS.md`, this file.
+`docs/ARCHITECTURE.md` ("The V1/V2 split" rewritten, "Why two matchers
+exist" updated with the known tradeoff, "Presentation layer" section
+split by producer), `docs/MATCHING_AND_RANKING.md` (intro + "Known edge
+cases" updated, live-verification note added), `docs/TESTING.md` (new
+test file entry), `README.md` (architecture diagram, project structure,
+roadmap - including two stale claims found and fixed: V1 matcher
+described as unconditionally used by the dashboard, and CV parsing
+described as "not yet wired to a route" after it already was),
+`docs/PORTFOLIO.md` (updated interview answers, test count, "what's
+next"), `NEXT_TASKS.md`, `CHANGELOG.md`, this file.
 
 ## Known, honestly-documented limitations (carried forward + new)
 
-- The dashboard displays scores from the legacy `app.ai.matcher.JobMatcher`,
-  not V2's own matcher - see `docs/ARCHITECTURE.md`'s "The V1/V2 split."
-  Deliberately not attempted this session: it's a real design decision
-  with regression risk to a currently-good feature, not a quick fix.
+- V2's matcher lacks V1's Finnish-language title terms, exclusion list,
+  and experience-requirement penalties - now a live, visible difference
+  in dashboard results depending on whether V2 succeeded (`NEXT_TASKS.md`
+  Priority 1).
 - Tyomarkkinatori and Work in Finland return 0 results (client-side
   JavaScript rendering, not TLS - see `docs/DATA_SOURCES.md`).
 - CV upload stops at review; nothing merges extracted data into
@@ -100,15 +114,14 @@ entries), `README.md`, `CHANGELOG.md`, `NEXT_TASKS.md`, this file.
 
 ## Exact next task
 
-Per `NEXT_TASKS.md`, in order: finish Priority 3 (build the
-accept-fields merge step for CV data), Priority 3b (fix the output-
-directory mismatch), Priority 4 (skill-gap feature - the underlying
-`missing_skills` data already exists in V2's `MatchResult`), Priority 5
-(source diagnostics, low urgency), Priority 6 (consolidate the two Ollama
-wrapper classes, low urgency), Priority 7 (final verification pass).
-Priority 1 (V1/V2 ranking unification) remains a flagged, deliberate
-design decision rather than something to resolve unilaterally - read
-`docs/ARCHITECTURE.md`'s "The V1/V2 split" before touching it.
+Per `NEXT_TASKS.md`, in order: Priority 1 (port V1's Finnish
+terms/exclusion list/experience penalty into V2's matcher - the natural
+continuation of this session's unification work), Priority 2 (real data
+from the two JS-rendered sources), Priority 3/3b (CV-to-profile merge
+step; output-directory mismatch), Priority 4 (skill-gap feature, already
+correctly scoped - it needs job-requirement extraction, not just
+exposing existing data), Priority 5/6 (source diagnostics, Ollama wrapper
+consolidation - both low urgency), Priority 7 (final verification pass).
 
 ## Handoff protocol
 
