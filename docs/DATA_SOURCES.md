@@ -74,15 +74,32 @@ Regression tests confirming it's excluded:
 **This was a user decision, not a unilateral one.** The finding was
 reported directly, with the real tradeoff stated plainly (Duunitori had
 been the largest single source of collected jobs), and disabling it was
-the option chosen.
+the option chosen. Confirmed again in a follow-up instruction: keep it
+disabled, and do not scrape a source when its `robots.txt` explicitly
+disallows generic crawlers.
 
-**To re-enable**: get Duunitori's explicit permission (e.g. contact them
-about their crawling policy / an API), and/or change `HEADERS` to
-honestly identify this project (not spoof a browser) - note that alone
-still wouldn't make it compliant under the current `robots.txt`, since an
-honestly-named, non-allowlisted crawler still falls under the `*` group's
-`Disallow: /`. Either way, add the source back to both registries and
-re-verify live before considering it "working" again.
+**Policy: no circumvention.** Spoofing a different crawler identity to
+match one of `robots.txt`'s named allowlist entries, switching the
+User-Agent while still not being that crawler, or scraping the disallowed
+paths anyway are all out of scope - not evaluated as options, not
+partially implemented, not left as a "quick fix" for later. `robots.txt`
+disallowing this scraper's user-agent group is treated the same way this
+project treats a TLS failure: not something to route around.
+
+**Possible future resolution** (either of these, not a code change on its
+own):
+
+1. **Obtain Duunitori's explicit permission** - contact them directly
+   about their crawling policy for this kind of aggregation, and get an
+   actual go-ahead (ideally reflected in an updated `robots.txt` or a
+   written agreement), before re-enabling anything.
+2. **Use an official/approved API**, if Duunitori offers one for job
+   aggregators - this would be a distinct integration (proper API
+   credentials, its own terms of use), not the scraper this project
+   already has.
+
+Only once one of those is actually in place: add the source back to both
+registries and re-verify live before considering it "working" again.
 
 ## Jobly - working, verified live, now `Crawl-delay`-compliant
 

@@ -37,23 +37,27 @@ Investigated this session with real browser network inspection
 human/policy decision, not a technical unknown.
 
 - [ ] **Duunitori** (highest impact - this was the largest source of
-      collected jobs): implemented, tested, and was working, but is now
+      collected jobs): implemented, tested, and was working, but stays
       **disabled** because `duunitori.fi/robots.txt` disallows this
       scraper's generic User-Agent (`Disallow: /` for the `*` group,
       with named exceptions only for specific bots like Googlebot). This
       was found *after* the scraper had already shipped and been
-      re-verified multiple times this session - not caught proactively.
-      Disabled at the user's explicit direction once reported. To
-      re-enable: get Duunitori's explicit permission (e.g. contact them
-      about an API or crawling exception), and/or switch to an
-      honestly-identifying User-Agent (note: that alone still wouldn't
-      make it compliant under the *current* `robots.txt`, since a
-      non-allowlisted honest crawler still falls under `Disallow: /` -
-      it would need an actual policy change or explicit permission from
-      Duunitori, not just a header change). Then re-add
-      `DuunitoriSource` to both `app/search/v2/registry.py`'s
-      `SOURCE_REGISTRY` and `app/search/manager.py`'s
-      `SearchManager.searchers`, and re-verify live.
+      re-verified multiple times earlier in the same session - not
+      caught proactively. Disabled at the user's explicit direction, and
+      confirmed again in a follow-up instruction to keep it disabled.
+      **No circumvention path is in scope**: not spoofing a different
+      crawler's identity, not switching User-Agent while still not
+      being an allowlisted crawler, not scraping the disallowed paths
+      anyway. The only two paths to re-enabling it: (1) obtain
+      Duunitori's explicit permission (contact them directly about their
+      crawling policy, ideally reflected in an updated `robots.txt` or a
+      written agreement), or (2) use an official/approved API if
+      Duunitori offers one for aggregators - a distinct integration with
+      its own credentials and terms, not this scraper. Only once one of
+      those is actually in place: re-add `DuunitoriSource` to both
+      `app/search/v2/registry.py`'s `SOURCE_REGISTRY` and
+      `app/search/manager.py`'s `SearchManager.searchers`, and re-verify
+      live.
 - [ ] **Tyomarkkinatori**: its internal JSON search API was found,
       confirmed working, and a full `TyomarkkinatoriSource`
       implementation against it was built and verified live (4 real,

@@ -128,9 +128,14 @@ in an already-shipped, heavily-relied-upon source:
   found, it was reported directly rather than silently fixed or silently
   left running - disabling it was a real tradeoff (it had been the
   largest single source of collected jobs) and was the user's decision to
-  make, not a unilateral one. It's now unregistered from both V1 and V2
-  search (code intact, not deleted - see `docs/DATA_SOURCES.md` for how
-  to re-enable it correctly).
+  make, not a unilateral one, confirmed again in a follow-up instruction
+  to keep it disabled and not circumvent `robots.txt` in any way
+  (spoofing a different crawler identity, using a different but still
+  non-allowlisted User-Agent, or scraping the disallowed paths anyway are
+  all explicitly out of scope). It's now unregistered from both V1 and V2
+  search (code intact, not deleted - see `docs/DATA_SOURCES.md` for the
+  two legitimate paths to re-enabling it: Duunitori's explicit permission,
+  or an official/approved API).
 
 **Jobly**, by contrast, has a compliant `robots.txt` (no `Disallow` on
 the paths this project scrapes) but specifies `Crawl-delay: 10`, which
