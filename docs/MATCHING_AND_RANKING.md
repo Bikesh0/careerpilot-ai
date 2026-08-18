@@ -115,6 +115,15 @@ location matched", "11 profile skills not found") - not the legacy
 matcher's differently-worded output. See `docs/ARCHITECTURE.md`'s "The
 V1/V2 split."
 
+**Note**: both verifications above ran while Duunitori was still an
+active source - "Staff Security Engineer" was a Duunitori posting.
+Duunitori was disabled later the same session for `robots.txt`
+compliance (see `docs/DATA_SOURCES.md`), so a live search today only
+returns Jobly results and won't show this exact example. The scoring
+*mechanism* verified here is unaffected by which source produced a
+job - re-verified again post-disable with Jobly-only results (14 jobs,
+correctly matched and ranked) in `docs/DATA_SOURCES.md`.
+
 ## V1 matcher - what the dashboard actually shows (`app/ai/matcher.py`)
 
 This is a considerably larger, hand-tuned matcher built specifically for

@@ -88,7 +88,12 @@ directly: `tests/test_cv_upload.py` uploads a file with that exact name
 and asserts the saved path stays inside `data/cv_uploads/` and is never
 named `evil.docx`). The upload is also capped at 10MB
 (`app.config["MAX_CONTENT_LENGTH"]` in `webapp.py`) to reject a trivially
-abusive upload before it's fully read into memory.
+abusive upload before it's fully read into memory. `data/cv_uploads/` -
+which holds real personal documents (name, contact info, work history)
+once this is actually used - is in `.gitignore`, found and fixed during
+this session's final security review: the directory didn't exist yet in
+this repository, but nothing had explicitly excluded it, so a future
+uploaded CV could have been accidentally committed by a broad `git add`.
 
 Extracted CV data is displayed for review only - `/settings/upload-cv`
 never writes to `profiles/profile.json` automatically, so a bad or

@@ -149,17 +149,6 @@ it:
       log lines. Only worth building if source reliability becomes a
       recurring debugging pain point - see `docs/DATA_SOURCES.md`.
 
-## Priority 6 - Final verification pass
-
-- [ ] Full repo-wide `py_compile` check (not yet run across every file
-      this session, only on files actually changed).
-- [ ] Final documentation audit: re-read every file listed in
-      `PROJECT_STATE.md`'s Documentation section against the code as it
-      exists at that point, since further changes may have landed since
-      this file was written.
-- [ ] Confirm `git status` is clean and everything is pushed before
-      declaring the project "complete" for a portfolio review.
-
 ## Explicitly not planned right now
 
 - Multi-user support / authentication - this is a single-user local

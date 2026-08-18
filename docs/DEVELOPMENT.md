@@ -37,10 +37,12 @@ $env:CAREERPILOT_SEARCH_V2 = "1"
 ```
 
 Visit `http://127.0.0.1:5000/`. The dashboard triggers a live search
-against the real job sources on load - expect it to take anywhere from a
-few seconds to over a minute depending on network conditions, since
-Duunitori and Jobly each fetch a detail page per matching job across 14-15
-search terms.
+against the real job sources on load. Currently only Jobly returns
+results (Duunitori is disabled pending `robots.txt` compliance;
+Tyomarkkinatori and Work in Finland return 0 - see
+`docs/DATA_SOURCES.md`), and Jobly's scraper deliberately pauses 10
+seconds after every request to honor its `robots.txt` `Crawl-delay` -
+expect a full dashboard load to take several minutes, not seconds.
 
 ## Running a V2 search directly (no Flask)
 

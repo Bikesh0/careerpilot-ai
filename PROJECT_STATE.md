@@ -164,6 +164,14 @@ Full set complete: `README.md` plus `docs/ARCHITECTURE.md`,
 live verification, not from the (partially inaccurate) prior handoff
 notes.
 
+A final documentation-review pass swept every file for stale claims
+(found and fixed: two remaining "39 tests" mentions, a missing note
+about Jobly's crawl-delay slowing dashboard loads, live-verification
+examples referencing a since-disabled Duunitori posting) and found
+`app/search/docs/V2_SEARCH_ARCHITECTURE.md` - a tracked, severely
+outdated, internally self-duplicated planning document from a very early
+V2 stage, superseded entirely by the docs above. Removed.
+
 ## Current milestone
 
 The V2 search pipeline, profile-aware matching (V2 owns dashboard

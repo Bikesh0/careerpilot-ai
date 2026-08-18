@@ -203,7 +203,7 @@ return a clear "unavailable" response instead of failing silently.
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-39 tests, all fixture- or mock-backed. The suite performs no live job
+57 tests, all fixture- or mock-backed. The suite performs no live job
 searches and never calls Ollama. Details, including what each test file
 covers, are in [docs/TESTING.md](docs/TESTING.md).
 

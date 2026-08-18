@@ -1,5 +1,55 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-18 - Release audit: final security/documentation review
+
+Final pass through the remaining release priorities (security review,
+integration testing, documentation review, release audit) after the
+robots.txt compliance work below.
+
+**Security re-scan**: confirmed, repo-wide, zero occurrences of
+`verify=False`, hardcoded secrets, `subprocess`/`eval`/`exec`/
+`pickle.load`, or hardcoded `debug=True`. No secret-shaped files tracked
+in git. Found and fixed one real gap: `data/cv_uploads/` (holds real
+personal documents once the CV upload feature is used) was not covered
+by `.gitignore` - only `data/*.db` was. Added it.
+
+**Found and fixed a second live robots.txt gap**, missed in the earlier
+compliance pass: `test_sources.py`, the manual live smoke-check script
+this project's own README tells developers to run, still imported and
+called `DuunitoriSource().search()` directly - completely bypassing the
+registry-level disable. Removed it from that script too, with a comment
+explaining why, so running the documented dev workflow can't
+accidentally violate `duunitori.fi/robots.txt` again.
+
+**Documentation review** found and removed `app/search/docs/V2_SEARCH_ARCHITECTURE.md`
+- a tracked, ~67KB planning/interview-prep document from a very early
+V2 development stage, discovered to contain its own content pasted
+twice inside itself (a real generation bug), severely outdated (predates
+almost this entire multi-session engagement - describes V2 as not yet
+integrated into the application, references only 7 early commits, lists
+all four sources as equally active), and sitting in a non-standard
+location a reader wouldn't expect documentation to live in. The current
+`docs/` directory already covers everything it attempted, more
+accurately. Also swept every doc for other stale claims and fixed what
+was found: `docs/TESTING.md` and `README.md` both still said "39 tests"
+(stale since an earlier session's test additions), `docs/DEVELOPMENT.md`
+didn't mention that a dashboard load now takes several minutes because
+of Jobly's crawl-delay, and `docs/MATCHING_AND_RANKING.md`'s live-
+verification examples referenced a Duunitori posting that no longer
+appears now that Duunitori is disabled - clarified rather than removed,
+since the scoring mechanism itself was still correctly verified.
+
+**Also removed** `bootstrap.py` and `run.py` - two 0-byte files with no
+references anywhere in the codebase, confirmed unused before deleting
+(not blindly).
+
+**Final integration test**: one continuous live pass (dashboard, /search,
+save-job idempotency, applications page, all four sidebar links, CV
+upload, generate/cover-letter graceful degradation) run end to end
+against the real, now-compliant source set - all 7 checks passed. Full
+suite: 57 passed (unchanged - this was cleanup and documentation, not
+new functionality).
+
 ## 2026-08-18 - robots.txt compliance: Duunitori disabled, Jobly crawl-delay added
 
 Continuing down `NEXT_TASKS.md` Priority 2, used real browser network

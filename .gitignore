@@ -14,6 +14,9 @@ data/*.sqlite3
 /careerpilot.db
 *.db-journal
 
+# Uploaded CVs (personal data - name, contact info, work history)
+data/cv_uploads/
+
 # Test scratch directories
 .pytest_cache/
 .pytest-tmp/
