@@ -52,7 +52,15 @@ Description:
 {job.description}
 """
 
-        return self.ai.ask(
+        letter = self.ai.ask(
             "You are an expert professional cover letter writer.",
             prompt
-        ).strip()
+        )
+
+        if letter is None:
+            raise RuntimeError(
+                "AI cover letter generation is unavailable "
+                "(local Ollama did not respond)."
+            )
+
+        return letter.strip()

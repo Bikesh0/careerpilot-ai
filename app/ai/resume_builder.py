@@ -53,6 +53,12 @@ Job Description:
             prompt
         )
 
+        if response is None:
+            raise RuntimeError(
+                "AI resume generation is unavailable "
+                "(local Ollama did not respond)."
+            )
+
         print("\n========== AI RESPONSE ==========")
         print(response)
         print("=================================\n")

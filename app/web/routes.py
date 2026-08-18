@@ -72,10 +72,23 @@ def _search_jobs(profile=None):
                 f"{len(ranked)} ranked jobs"
             )
 
-            return [
+            jobs = [
                 item.job
                 for item in ranked
             ]
+
+            # CanonicalJob has no "id" field, and the dashboard's
+            # Generate/Cover Letter/Save actions link to
+            # /generate/<id> etc., which resolve through
+            # manager.get_job(id). Assign local ids the same way
+            # SearchManager.search_jobs() does for V1 jobs, and
+            # register the list so those routes can find them.
+            for index, job in enumerate(jobs):
+                job.id = index
+
+            manager.latest_jobs = jobs
+
+            return jobs
 
         except Exception as error:
 
@@ -242,10 +255,25 @@ def generate(job_id):
 
     profile = profile_loader.load()
 
-    resume = document_ai.resume_builder.build(
-        profile,
-        job
-    )
+    try:
+
+        resume = document_ai.resume_builder.build(
+            profile,
+            job
+        )
+
+    except Exception as error:
+
+        print(
+            f"Resume generation failed: {error}"
+        )
+
+        return (
+            "AI resume generation is unavailable right now "
+            "(the local Ollama model did not respond). "
+            "Please try again once Ollama is running.",
+            503,
+        )
 
     return render_template(
         "resume.html",
@@ -270,10 +298,25 @@ def coverletter(job_id):
 
     profile = profile_loader.load()
 
-    letter = document_ai.cover_builder.build(
-        profile,
-        job
-    )
+    try:
+
+        letter = document_ai.cover_builder.build(
+            profile,
+            job
+        )
+
+    except Exception as error:
+
+        print(
+            f"Cover letter generation failed: {error}"
+        )
+
+        return (
+            "AI cover letter generation is unavailable right now "
+            "(the local Ollama model did not respond). "
+            "Please try again once Ollama is running.",
+            503,
+        )
 
     return render_template(
         "coverletter.html",
