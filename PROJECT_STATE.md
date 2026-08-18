@@ -73,7 +73,7 @@ titles/locations with no visible error. Fixed; regression test added
 
 ## Tests
 
-Current test result: **39 passed**
+Current test result: **48 passed**
 
 Run with:
 ```powershell
@@ -81,20 +81,24 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 15 of the 39
+Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 24 of the 48
 tests were added this session, each a direct regression test for a
-specific bug found and fixed (profile corruption, the ranking module
+specific bug found and fixed: profile corruption, the ranking module
 collision, the Duunitori title bug, the SSRF-adjacent domain guard, the
-broken dashboard job-action links).
+broken dashboard job-action links, a saved-jobs duplicate-record bug
+(user-reported), four broken sidebar navigation links, and the new CV
+upload path.
 
 ## Flask
 
 The dashboard works with V2 enabled - verified live (not just read from
 code): dashboard loads, job-action links resolve to real ids, save-job
-persists and shows up under `/applications`, and the resume/cover-letter
-generation routes now fail fast and gracefully (503) instead of hanging
-when the local Ollama model is slow/unavailable, verified with a live
-timed test.
+persists (without creating duplicates) and shows up under `/applications`,
+every sidebar link resolves without a 404, CV upload extracts and
+displays real `.docx`/`.pdf` data for review, and the resume/cover-letter
+generation routes fail fast and gracefully (503) instead of hanging when
+the local Ollama model is slow/unavailable, verified with a live timed
+test.
 
 Main web integration: `app/web/routes.py`.
 
@@ -132,14 +136,19 @@ notes.
 ## Current milestone
 
 The V2 search pipeline, profile-aware matching (V1 presentation layer +
-V2 pipeline layer), dashboard, saved jobs, and AI document generation are
-all implemented, tested, and verified working end-to-end. Six real bugs
-found through live investigation this session are fixed. Documentation is
-complete and accurate as of this update.
+V2 pipeline layer), dashboard, saved jobs (duplicate-safe), sidebar
+navigation, CV upload with AI-assisted extraction, and AI document
+generation are all implemented, tested, and verified working end-to-end.
+Nine real bugs found through live investigation across this session
+(six in the initial audit, plus a user-reported saved-jobs bug, a
+self-discovered navigation bug, and a JSON-extraction fragility found
+while wiring up CV upload) are fixed. Documentation is complete and
+accurate as of this update.
 
 Remaining honestly-scoped work (see
 [NEXT_TASKS.md](NEXT_TASKS.md) and
 [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)): unifying the V1/V2
-matcher split on the dashboard, getting real data out of the two
-JS-rendered sources, wiring up the already-built CV-upload path, and
-final repo-wide cleanup/verification pass.
+matcher split on the dashboard (a real design decision, not attempted
+unilaterally), getting real data out of the two JS-rendered sources,
+building the review-to-profile merge step for CV data, fixing the
+resume/cover-letter output-directory mismatch, and a skill-gap feature.
