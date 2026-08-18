@@ -2,6 +2,8 @@ from typing import Iterable
 
 from app.search.v2.matching.result import MatchResult
 from app.search.v2.matching.signals import (
+    extract_required_experience_years,
+    extract_text,
     find_skill_matches,
     location_matches,
     title_matches,
@@ -36,6 +38,54 @@ class JobMatcher:
         "architect": ["architect"],
     }
 
+    # Ported from app.ai.matcher.JobMatcher.EXCLUDED_TITLE_TERMS. This
+    # is generic (not profile-specific), so it belongs in code rather
+    # than profiles/profile.json - unlike target_titles, which is
+    # candidate-specific data.
+    EXCLUDED_TITLE_TERMS = [
+        "marketing",
+        "sales",
+        "account executive",
+        "business development",
+        "business developer",
+        "recruiter",
+        "recruitment",
+        "talent acquisition",
+        "human resources",
+        "hr manager",
+        "designer",
+        "graphic designer",
+        "ux designer",
+        "ui designer",
+        "content writer",
+        "copywriter",
+        "teacher",
+        "accountant",
+        "finance manager",
+        "financial analyst",
+        "legal counsel",
+        "lawyer",
+        "product marketing",
+        "communications manager",
+        "head of marketing",
+        "social media manager",
+        "customer success manager",
+        "sales manager",
+        "sales representative",
+    ]
+
+    # Ported from app.ai.matcher.JobMatcher._experience_requirement_penalty
+    # - same thresholds, verified against real postings in that matcher.
+    # A posting requiring more experience than a junior/entry-level
+    # candidate realistically has is penalized on a sliding scale.
+    EXPERIENCE_REQUIREMENT_PENALTIES = (
+        (7, 20.0),
+        (5, 15.0),
+        (4, 11.0),
+        (3, 7.0),
+        (2, 3.0),
+    )
+
     def __init__(
         self,
         profile_skills: Iterable[str] = None,
@@ -47,6 +97,25 @@ class JobMatcher:
         self.target_locations = list(target_locations or [])
 
     def score_job(self, job) -> MatchResult:
+        job_id = str(
+            getattr(job, "external_id", None)
+            or getattr(job, "url", "")
+            or getattr(job, "title", "")
+        )
+
+        title = str(getattr(job, "title", "") or "")
+
+        if self._title_is_excluded(title):
+            return MatchResult(
+                job_id=job_id,
+                score=0.0,
+                reasons=[
+                    "Excluded: title matches an unrelated role "
+                    "(e.g. marketing, sales, HR)"
+                ],
+                excluded=True,
+            )
+
         matched_skills, missing_skills = find_skill_matches(
             job, self.profile_skills
         )
@@ -88,11 +157,18 @@ class JobMatcher:
         if missing_skills:
             reasons.append(f"{len(missing_skills)} profile skills not found")
 
-        job_id = str(
-            getattr(job, "external_id", None)
-            or getattr(job, "url", "")
-            or getattr(job, "title", "")
+        required_years = extract_required_experience_years(
+            extract_text(job)
         )
+        experience_penalty = self._experience_requirement_penalty(
+            required_years
+        )
+
+        if experience_penalty:
+            score -= experience_penalty
+            reasons.append(
+                f"Requires {required_years}+ years experience"
+            )
 
         return MatchResult(
             job_id=job_id,
@@ -105,6 +181,23 @@ class JobMatcher:
             location_score=round(location_score, 2),
             seniority_score=round(seniority_score, 2),
         )
+
+    def _title_is_excluded(self, title):
+        for term in self.EXCLUDED_TITLE_TERMS:
+            if self._term_in_text(term, title):
+                return True
+        return False
+
+    @classmethod
+    def _experience_requirement_penalty(cls, years):
+        if years is None:
+            return 0.0
+
+        for threshold, penalty in cls.EXPERIENCE_REQUIREMENT_PENALTIES:
+            if years >= threshold:
+                return penalty
+
+        return 0.0
 
     def _detect_seniority(self, job):
         title = str(getattr(job, "title", "") or "").lower()

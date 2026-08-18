@@ -55,6 +55,14 @@ class JobRanker:
 
         ranked = [self.score(job) for job in jobs or []]
 
+        # Jobs whose title matches an unrelated role (marketing, sales,
+        # HR, etc. - see JobMatcher.EXCLUDED_TITLE_TERMS) are dropped
+        # entirely rather than merely down-ranked, matching the legacy
+        # V1 matcher's behavior (it skips them before scoring). This is
+        # a real exclusion, not a low score, since these roles are never
+        # relevant to this search regardless of any other signal.
+        ranked = [item for item in ranked if not item.match.excluded]
+
         ranked.sort(key=self._sort_key, reverse=True)
 
         for index, item in enumerate(ranked, start=1):

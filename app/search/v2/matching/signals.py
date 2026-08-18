@@ -84,3 +84,35 @@ def location_matches(job, target_locations: Iterable[str]) -> List[str]:
             matches.append(target)
 
     return matches
+
+
+# Ported from app.ai.matcher.JobMatcher._extract_required_experience -
+# same patterns, verified against real postings in that matcher before
+# being carried over here.
+_EXPERIENCE_YEAR_PATTERNS = [
+    r"(\d+)\s*\+?\s*years?\s+(?:of\s+)?experience",
+    r"minimum\s+of\s+(\d+)\s+years?",
+    r"at\s+least\s+(\d+)\s+years?",
+    r"(\d+)\s*-\s*\d+\s+years?\s+(?:of\s+)?experience",
+    r"(\d+)\s*\+\s*years?",
+]
+
+
+def extract_required_experience_years(text: str):
+    """
+    Return the highest number of years of experience mentioned in
+    `text` (e.g. "5+ years of experience", "at least 3 years"), or
+    None if no such phrase is found.
+    """
+
+    text = str(text or "")
+    matches = []
+
+    for pattern in _EXPERIENCE_YEAR_PATTERNS:
+        for value in re.findall(pattern, text, flags=re.IGNORECASE):
+            try:
+                matches.append(int(value))
+            except (TypeError, ValueError):
+                continue
+
+    return max(matches) if matches else None

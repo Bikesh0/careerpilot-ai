@@ -264,27 +264,34 @@ words - documented here rather than "fixed" with a riskier heuristic. See
 ## Why two matchers exist instead of one
 
 Deleting either matcher outright would have been the wrong call: V1
-`JobMatcher` handles cases (Finnish title terms, an explicit exclusion
-list, experience-requirement penalties, seniority-specific mismatch
-penalties) that V2's matcher does not implement. Rather than choosing one
-and discarding real, working functionality, the dashboard now uses
-**whichever matcher actually produced the job list** (see "The V1/V2
-split"): V2's own scoring when V2 search succeeds, V1's more elaborate
-scoring as a genuine fallback when it doesn't. Both classes are unchanged
-- ownership is decided by a thin adapter and a presence check in
-`app/web/routes.py`, not by picking a winner and deleting the other.
+`JobMatcher` handled cases V2's matcher didn't implement yet. Rather than
+choosing one and discarding real, working functionality, the dashboard
+uses **whichever matcher actually produced the job list** (see "The
+V1/V2 split"): V2's own scoring when V2 search succeeds, V1's more
+elaborate scoring as a genuine fallback when it doesn't. Both classes
+remain independently usable - ownership is decided by a thin adapter and
+a presence check in `app/web/routes.py`, not by picking a winner and
+deleting the other.
 
-**Known consequence of this design, not yet resolved**: V2's matcher
-still lacks V1's Finnish-language title terms, exclusion list, and
-experience-requirement penalties. A job titled entirely in Finnish (e.g.
-`"tietoturva-asiantuntija"` with no English equivalent elsewhere in the
-title - a real example from Duunitori, now unregistered, but the same
-class of posting also appears on Jobly/Tyomarkkinatori) will score lower
-under V2's presentation than it would have under V1's - this is a real,
-live behavior difference between "V2 succeeded" and "V2 disabled," not a
-bug in the integration itself. Porting those specific V1 capabilities
-into V2's matcher (see
-`docs/MATCHING_AND_RANKING.md`) would close this gap without reintroducing
-the two-presentation-layer problem, since the adapter here doesn't care
-which matcher's logic V2 uses internally - only that V2 owns its own
-output end to end.
+**Three specific gaps identified when this integration first shipped
+have since been ported into V2's matcher**: Finnish-language title
+recognition (as data - added to `profiles/profile.json`, since V2's
+title matching has no hardcoded vocabulary of its own to add Python
+constants to), an exclusion list for obviously unrelated roles
+(marketing, sales, HR, etc. - ported as code, since it's generic rather
+than profile-specific), and a required-experience penalty (ported as
+code, same thresholds as V1). See `docs/MATCHING_AND_RANKING.md`'s
+"Ported from V1" for the exact mechanism and tests, live-verified against
+the real profile and real sources afterward.
+
+**Remaining differences, a deliberate scope boundary, not an oversight**:
+V1's tiered title-category scoring (`PRIMARY`/`SECONDARY`/`RELATED`
+rather than V2's binary match/no-match), weighted skill importance
+(`SKILL_WEIGHTS` plus a skill-alias table), and V1's much steeper flat
+seniority-mismatch penalties were **not** ported - these are genuine
+design-philosophy differences between a simpler, cleanly-weighted matcher
+(V2) and a heavily hand-tuned one (V1), not gaps to mechanically copy
+over. Porting them would mean re-deriving V1's weights inside V2 without
+the evidence trail that produced them in the first place. If full parity
+is ever wanted, that's a real design decision - see `docs/MATCHING_AND_RANKING.md`'s
+"Known edge cases and limitations".

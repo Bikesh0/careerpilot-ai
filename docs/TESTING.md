@@ -16,7 +16,7 @@ temp dir); redirecting to a project-local `.pytest-tmp/` sidesteps it.
 It's optional in a normal environment - `pytest -q` on its own works fine
 there.
 
-**Current result: 57 passed**, in well under a second. No test in the
+**Current result: 63 passed**, in well under a second. No test in the
 suite performs a live network request or calls Ollama.
 
 ## What's covered, by file
@@ -24,7 +24,7 @@ suite performs a live network request or calls Ollama.
 | File | Covers |
 | --- | --- |
 | `test_search_v2_core.py` | `CanonicalJob` normalization/dedupe: whitespace/case collapsing, Finnish `Oy`/`Oyj` suffix stripping, dedupe key composition, skill deduplication, invalid-date handling, remote/hybrid mapping |
-| `test_v2_matching_regressions.py` | Word-boundary skill/title matching (the Java/JavaScript false-positive case), full `JobMatcher.score_job()` scoring |
+| `test_v2_matching_regressions.py` | Word-boundary skill/title matching (the Java/JavaScript false-positive case), full `JobMatcher.score_job()` scoring, and the V1-to-V2 matching port: a Finnish-titled job matches a Finnish target title, `EXCLUDED_TITLE_TERMS` scores a job 0 and flags it excluded, `JobRanker.rank()` drops excluded jobs entirely, `extract_required_experience_years()` finds the highest figure mentioned, and the experience-requirement penalty measurably lowers a demanding posting's score |
 | `test_v2_ranking.py` | `JobRanker`: the mixed-`datetime`/`None` tie-break crash regression, sequential rank assignment, `limit` handling, `to_dict()` shape, title-match ordering |
 | `test_profile_integrity.py` | `profiles/profile.json` is valid JSON with the fields matching depends on, and `ProfileLoader` loads it successfully - a direct regression test for the Markdown-fence corruption bug fixed this session |
 | `test_duunitori_source.py` | `DuunitoriSource.parse_job_detail()` prefers `<h1>` over the JSON-LD taxonomy-slug `title` field - a direct regression test for that bug |

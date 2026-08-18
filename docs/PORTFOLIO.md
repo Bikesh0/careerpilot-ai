@@ -182,7 +182,7 @@ explainable. I also found and fixed a real bug where that AI call had no
 timeout and could hang a web request indefinitely."
 
 **How did you test it?**
-"57 automated tests, all mock/fixture-backed - no live network calls or
+"63 automated tests, all mock/fixture-backed - no live network calls or
 LLM dependency in the suite. Several are regression tests I wrote
 specifically after finding and root-causing a real bug live (a corrupted
 profile file, a scraper reading the wrong title field, broken dashboard
@@ -192,14 +192,32 @@ verified against the real, live dashboard afterward, not just the test
 suite in isolation."
 
 **What would you improve next?**
-"Port V1's Finnish-language title terms, exclusion list, and
-experience-requirement penalties into V2's matcher, so its scoring
-doesn't regress relative to V1's now that the dashboard shows V2's
-results directly. Get real data out of the two JS-rendered sources
-(probably via their internal APIs), and build the review-to-profile
-merge step for the CV upload feature - it currently stops at showing you
-what it extracted, deliberately, rather than silently rewriting your
-profile."
+"Get real data out of Duunitori and Tyomarkkinatori - both need the
+site's explicit permission or an official API before I'd revisit them;
+I'm not going to route around a `robots.txt` disallow just to get more
+results. Build the review-to-profile merge step for the CV upload
+feature - it currently stops at showing you what it extracted,
+deliberately, rather than silently rewriting your profile. And if I ever
+want full parity between the two matchers, port V1's tiered title
+scoring and weighted skills into V2 too - though that's a deliberate
+design-philosophy decision, not just a missing feature, so I'd want a
+real reason before doing it."
+
+**How did you decide what to port from V1 into V2's matcher, and what
+to leave out?**
+"I ported three things that were clear gaps, not design choices:
+Finnish-language title recognition, an exclusion list for obviously
+unrelated roles, and an experience-requirement penalty. But I didn't
+copy the Finnish terms into V2's Python code - V1 hardcodes them as a
+constant, which is exactly the 'personal data baked into source code'
+pattern this project avoids everywhere else. V2's title matching has no
+hardcoded vocabulary at all; it matches against whatever the profile
+supplies. So the right port was adding those Finnish terms to the
+profile's target_titles, not writing a parallel hardcoded list in
+matcher code. I left out V1's tiered title scoring and weighted skills
+entirely - those aren't gaps, they're a different scoring philosophy,
+and re-deriving someone's hand-tuned weights inside a second matcher
+without the evidence that produced them would just be guessing."
 
 **Tell me about a mistake you caught in your own work.**
 "Duunitori was the largest of my job sources - the one I'd fixed and

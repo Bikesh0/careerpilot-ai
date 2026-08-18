@@ -33,9 +33,17 @@ the presentation layer only when V2 is disabled or V2 search/ranking
 itself fails, unchanged from before. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)'s "The V1/V2 split" for the
 exact mechanism (a stashed `MatchResult` per job, checked by
-`_rank_jobs()`) and "Why two matchers exist instead of one" for the known,
-now-visible remaining gap: V2's matcher still lacks V1's Finnish-language
-title terms, exclusion list, and experience-requirement penalties.
+`_rank_jobs()`).
+
+V2's matcher previously lacked V1's Finnish-language title terms,
+exclusion list, and experience-requirement penalties - **all three are
+now ported** (Finnish terms as profile data, the other two as code) - see
+[docs/MATCHING_AND_RANKING.md](docs/MATCHING_AND_RANKING.md)'s "Ported
+from V1". Remaining differences (tiered title scoring, weighted skills,
+V1's steeper seniority penalties) are a deliberate design-philosophy
+boundary, not a gap - see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)'s "Why two matchers exist
+instead of one".
 
 ## Sources
 
@@ -89,8 +97,10 @@ silently.
 
 Profile file: `profiles/profile.json`
 
-Contains: 17 skills, 13 target titles, 4 target locations, plus
-experience, education, certifications, languages, interests.
+Contains: 17 skills, 17 target titles (13 English + 4 Finnish, added
+this session so V2's matcher can recognize Finnish-titled postings - see
+`docs/MATCHING_AND_RANKING.md`), 4 target locations, plus experience,
+education, certifications, languages, interests.
 
 **Fixed this session**: the file was previously wrapped in a Markdown
 code fence (` ```json ... ``` `), making it invalid JSON. Since profile
@@ -101,7 +111,7 @@ titles/locations with no visible error. Fixed; regression test added
 
 ## Tests
 
-Current test result: **57 passed**
+Current test result: **63 passed**
 
 Run with:
 ```powershell
@@ -109,15 +119,16 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 33 of the 57
+Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 39 of the 63
 tests were added this session, each a direct regression test for a
 specific bug found and fixed: profile corruption, the ranking module
 collision, the Duunitori title bug, the SSRF-adjacent domain guard, the
 broken dashboard job-action links, a saved-jobs duplicate-record bug
 (user-reported), four broken sidebar navigation links, the CV upload
 path, the V1/V2 ranking-unification (V2's own score silently discarded
-before reaching the dashboard), and Duunitori/Jobly `robots.txt`
-compliance (Duunitori disabled, Jobly crawl-delay added).
+before reaching the dashboard), Duunitori/Jobly `robots.txt` compliance
+(Duunitori disabled, Jobly crawl-delay added), and the V1-to-V2 matching
+port (Finnish titles, exclusion list, experience penalty).
 
 ## Flask
 
@@ -175,29 +186,30 @@ V2 stage, superseded entirely by the docs above. Removed.
 ## Current milestone
 
 The V2 search pipeline, profile-aware matching (V2 owns dashboard
-presentation when it succeeds; V1 is the tested fallback), dashboard,
-saved jobs (duplicate-safe), sidebar navigation, CV upload with
-AI-assisted extraction, AI document generation, and `robots.txt`
-compliance across all sources are all implemented, tested, and verified
-working end-to-end. Twelve real issues found through live investigation
-across this session (six in the initial audit, a user-reported
-saved-jobs bug, a self-discovered navigation bug, a JSON-extraction
-fragility found while wiring up CV upload, V2's own score being silently
-discarded before reaching the dashboard, and two `robots.txt` compliance
-gaps - Duunitori disallowed entirely, Jobly's crawl-delay unhonored) are
-fixed or, in Duunitori's case, resolved by disabling the source at the
-user's explicit direction. Documentation is complete and accurate as of
-this update.
+presentation when it succeeds, with Finnish-title recognition, an
+exclusion list, and an experience-requirement penalty ported from V1;
+V1 is the tested fallback), dashboard, saved jobs (duplicate-safe),
+sidebar navigation, CV upload with AI-assisted extraction, AI document
+generation, and `robots.txt` compliance across all sources are all
+implemented, tested, and verified working end-to-end. Thirteen real
+issues found through live investigation across this session (six in the
+initial audit, a user-reported saved-jobs bug, a self-discovered
+navigation bug, a JSON-extraction fragility found while wiring up CV
+upload, V2's own score being silently discarded before reaching the
+dashboard, two `robots.txt` compliance gaps - Duunitori disallowed
+entirely, Jobly's crawl-delay unhonored - and a stale, self-duplicated
+planning document found during the release audit) are fixed, ported, or,
+in Duunitori's case, resolved by disabling the source at the user's
+explicit direction. Documentation is complete and accurate as of this
+update.
 
 Remaining honestly-scoped work (see
 [NEXT_TASKS.md](NEXT_TASKS.md) and
 [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)): resolving Duunitori's
-disabled status (needs the site's explicit permission); porting V1's
-Finnish-language title terms, exclusion list, and experience-requirement
-penalties into V2's matcher so its scoring doesn't regress relative to
-V1's; getting Tyomarkkinatori's permission to use its own internal API
-(built and verified, not shipped for the same `robots.txt` reason);
-building the review-to-profile merge step for CV data; fixing the
-resume/cover-letter output-directory mismatch; and a skill-gap feature
-(already correctly scoped - needs job-requirement extraction, not just
-exposing existing data).
+disabled status (needs the site's explicit permission, or an
+official/approved API - no circumvention path is in scope) and
+Tyomarkkinatori's (same, for its own internal API, already built and
+verified but not shipped); building the review-to-profile merge step for
+CV data; fixing the resume/cover-letter output-directory mismatch; and a
+skill-gap feature (already correctly scoped - needs job-requirement
+extraction, not just exposing existing data).

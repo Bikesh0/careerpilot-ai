@@ -5,31 +5,7 @@ Status as of 2026-08-18, after a full audit-and-fix session. See
 current state. Completed items from the prior version of this file are
 removed rather than left checked - see git history for what they were.
 
-## Priority 1 - Port V1-only matching logic into V2's matcher
-
-The dashboard now shows V2's own score/matched-skills/reasons whenever
-V2 search succeeds, instead of always re-scoring through the legacy
-matcher - done 2026-08-18 (`app/web/routes.py._present_v2_ranked_jobs()`,
-see `docs/ARCHITECTURE.md`'s "The V1/V2 split"). This closed the
-ranking-ownership gap but opened a real, visible one: V2's matcher still
-lacks V1's Finnish-language title terms, exclusion list, and
-experience-requirement penalties, so a Finnish-titled posting (or an
-obviously-unrelated one V1 would have excluded) now scores differently
-depending on whether V2 succeeded or fell back to V1 for that request.
-
-- [ ] Port `app/ai/matcher.py`'s `SENIORITY_TERMS`-adjacent Finnish
-      title terms, `EXCLUDED_TITLE_TERMS`, and the required-experience
-      regex/penalty into `app/search/v2/matching/matcher.py`, so V2's
-      own scoring doesn't regress relative to V1's when V2 is the
-      source. See `docs/MATCHING_AND_RANKING.md`'s "Known edge cases and
-      limitations" for the exact gap.
-- [ ] Add regression tests in `tests/test_v2_matching_regressions.py`
-      covering the ported behaviors (a Finnish-titled job scoring
-      correctly, an excluded-title job being filtered/penalized,
-      experience-requirement penalty applied) directly against V2's
-      matcher.
-
-## Priority 2 - Source coverage: Duunitori (disabled), Tyomarkkinatori, Work in Finland
+## Priority 1 - Source coverage: Duunitori (disabled), Tyomarkkinatori, Work in Finland
 
 Investigated this session with real browser network inspection
 (`claude-in-chrome`), not just static-HTML guessing - see
@@ -90,7 +66,7 @@ human/policy decision, not a technical unknown.
       should be standard practice from here on, including re-checking
       periodically since `robots.txt` can change.
 
-## Priority 3 - Merge reviewed CV data into the profile
+## Priority 2 - Merge reviewed CV data into the profile
 
 The CV-upload path itself is done (`/settings/upload-cv` - see
 `docs/PRODUCT_VISION.md`, `docs/SECURITY.md`). It deliberately stops at
@@ -101,7 +77,7 @@ review - nothing writes to `profiles/profile.json` yet.
       AI-hallucinated extraction can't silently corrupt the profile
       everything else depends on).
 
-## Priority 3b - Fix the resume/cover-letter output directory mismatch
+## Priority 2b - Fix the resume/cover-letter output directory mismatch
 
 - [ ] `app/web/actions.py`'s `WebActions.latest_resume()`/
       `latest_cover_letter()` glob `resumes/`/`cover_letters/`, but
@@ -116,7 +92,7 @@ review - nothing writes to `profiles/profile.json` yet.
       `/resume`/`/coverletter` routes to show the most recently
       generated document instead of just redirecting to the dashboard.
 
-## Priority 4 - Skill-gap / quick-improvement feature
+## Priority 3 - Skill-gap / quick-improvement feature
 
 Not implemented. Scoped this session (2026-08-18), and it's a bigger,
 different feature than it first looks like - read this before building
@@ -146,7 +122,7 @@ it:
       already in `app/ai/matcher.py`, is safer than asking an LLM to
       invent a learning plan.
 
-## Priority 5 - Source-level diagnostics
+## Priority 4 - Source-level diagnostics
 
 - [ ] `SourceRunner` already isolates and logs per-source success/failure,
       but there's no dashboard-visible or persisted status report beyond

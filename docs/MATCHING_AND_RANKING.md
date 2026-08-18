@@ -2,21 +2,26 @@
 
 CareerPilot AI has **two** independent matchers, described separately
 below. `docs/ARCHITECTURE.md`'s "The V1/V2 split" explains why both exist
-and, as of this update, **which one actually drives the dashboard for a
-given request**: V2's own matcher/ranker when V2 search succeeds (the
-normal case with `CAREERPILOT_SEARCH_V2=1`), the V1 matcher as a genuine
-fallback when V2 is disabled or its search/ranking itself fails. This
-isn't a permanent 50/50 split by design - it's the result of a deliberate
-integration that gives V2 ownership of its own output without deleting
-V1's more elaborate logic, which V2 doesn't fully replicate yet (see
-"Known edge cases and limitations" below).
+and **which one actually drives the dashboard for a given request**: V2's
+own matcher/ranker when V2 search succeeds (the normal case with
+`CAREERPILOT_SEARCH_V2=1`), the V1 matcher as a genuine fallback when V2
+is disabled or its search/ranking itself fails. This isn't a permanent
+50/50 split by design - it's the result of a deliberate integration that
+gives V2 ownership of its own output without deleting V1's more elaborate
+logic. Three specific gaps identified when that integration first shipped
+(Finnish-language titles, an exclusion list for unrelated roles, an
+experience-requirement penalty) have since been closed - see "Ported from
+V1" below; the remaining differences are in "Known edge cases and
+limitations."
 
 ## V2 matcher (`app/search/v2/matching/`)
 
 ### Inputs
 
 - `profile_skills`: `profiles/profile.json["skills"]` (17 entries)
-- `target_titles`: `profiles/profile.json["target_titles"]` (13 entries)
+- `target_titles`: `profiles/profile.json["target_titles"]` (17 entries -
+  13 English plus 4 Finnish, added this session; see "Ported from V1"
+  below)
 - `target_locations`: `profiles/profile.json["target_locations"]` (4 entries)
 
 ### Skill normalization and word-boundary matching
@@ -68,6 +73,7 @@ score = title_score   * 0.40
       + skill_score    * 0.35
       + location_score * 0.15
       + seniority_score * 0.10
+      - experience_requirement_penalty
 ```
 
 - `title_score`: 100 if any target title matches, else 0 (binary, not
@@ -75,11 +81,65 @@ score = title_score   * 0.40
 - `skill_score`: `matched_skills / total_profile_skills * 100`.
 - `location_score`: 100 if any target location matches, else 0.
 - `seniority_score`: from the table above.
+- `experience_requirement_penalty`: see "Ported from V1" below - not
+  part of the weighted sum, subtracted afterward, same as V1.
+
+Before any of this runs, the job's title is checked against
+`EXCLUDED_TITLE_TERMS` - a match short-circuits scoring entirely (see
+"Ported from V1").
 
 The result is clamped to `[0, 100]` and rounded to 2 decimals. Human
 -readable `reasons` are generated alongside the score (e.g. "Target job
 title matched", "Matched 6 profile skills", "junior seniority is a good
 fit", "4 profile skills not found").
+
+### Ported from V1
+
+Three specific V1-only behaviors were ported into V2's matcher this
+session, closing the gap identified when V2 first took over dashboard
+presentation (see "The V1/V2 split" in `docs/ARCHITECTURE.md`):
+
+- **Finnish-language title terms** - ported as **data, not code**. V1
+  hardcodes Finnish terms (`"tietoturva-asiantuntija"`,
+  `"kyberturvallisuusasiantuntija"`, etc.) directly into its
+  `PRIMARY_TITLES` Python constant. V2's title matching has no hardcoded
+  vocabulary of its own - it matches against whatever `target_titles` the
+  profile supplies - so the equivalent fix is adding those same Finnish
+  terms to `profiles/profile.json["target_titles"]` (4 entries added:
+  `"Tietoturva-asiantuntija"`, `"Tietoturva-analyytikko"`,
+  `"Kyberturvallisuusasiantuntija"`, `"Kyberturvallisuus"`) rather than
+  hardcoding them into `app/search/v2/matching/matcher.py`. This keeps
+  the profile as the single source of truth for candidate-specific data
+  (personal target titles are not a matcher-code concern) rather than
+  reintroducing the anti-pattern V2 was built to avoid. Test:
+  `tests/test_profile_integrity.py::test_profile_target_titles_include_finnish_terms`.
+- **`EXCLUDED_TITLE_TERMS`** - ported as **code**, verbatim from V1's
+  list (marketing, sales, HR, design, legal, etc. - not profile-specific,
+  so it belongs in `JobMatcher`, not the profile). A title match
+  short-circuits `score_job()`: the job gets `score=0.0`,
+  `MatchResult.excluded=True`, and a specific reason string, without
+  computing skill/location/seniority at all. `JobRanker.rank()` then
+  drops any excluded job from the ranked output entirely - not merely a
+  low score, a real exclusion, matching V1's `continue`-and-skip
+  behavior. Tests: `tests/test_v2_matching_regressions.py::test_excluded_title_terms_score_zero_and_are_flagged`,
+  `::test_job_ranker_drops_excluded_jobs_entirely`.
+- **Required-experience penalty** - ported as **code**, verbatim
+  thresholds from V1's `_experience_requirement_penalty` (7+ years: -20,
+  5+: -15, 4+: -11, 3+: -7, 2+: -3), driven by a new
+  `extract_required_experience_years()` signal (same regex patterns as
+  V1's `_extract_required_experience`) run against the job's combined
+  text. Subtracted from the weighted score before the final `[0, 100]`
+  clamp. Tests:
+  `tests/test_v2_matching_regressions.py::test_extract_required_experience_years_finds_the_highest_figure`,
+  `::test_experience_requirement_penalizes_the_score`.
+
+**Not ported, by deliberate scope decision** (see "Known edge cases and
+limitations" below for why): V1's tiered title-category scoring
+(`PRIMARY`/`SECONDARY`/`RELATED`/generic-security-term), weighted skill
+importance (`SKILL_WEIGHTS`), the skill alias table, and V1's much
+steeper seniority mismatch penalties. These are genuine design
+differences between the two matchers' philosophies, not gaps - see
+`docs/ARCHITECTURE.md`'s "Why two matchers exist instead of one."
 
 ### Ranking / tie-breaking
 
@@ -173,17 +233,27 @@ silently produced near-flat, uninformative scores for every job.
 
 ## Known edge cases and limitations
 
-- V2's title matching is binary (100 or 0) with no partial credit for a
-  close-but-not-exact title; V1's tiered system is more forgiving.
-- V2's title/skill matching has no Finnish-language term list; V1's does.
-  **This now has a real, visible effect on the live dashboard**: since
-  the ranking-unification change, a Finnish-titled Duunitori posting
-  (e.g. `"tietoturva-asiantuntija"` with no English title text present)
-  scores lower when V2 search succeeds than it would have when V2 is
-  disabled and V1 takes over. This is an honest tradeoff of giving V2
-  ownership of its own output rather than silently masking the gap
-  behind V1 forever - see `docs/ARCHITECTURE.md`'s "Why two matchers
-  exist instead of one" for the plan to close it (port the missing
-  V1-only logic into V2's matcher).
+- **Resolved this session**: V2 previously had no Finnish-language title
+  recognition, no exclusion list, and no experience-requirement penalty -
+  a Finnish-titled posting scored `title_score=0` under V2 even when V1
+  would have recognized it, and an obviously unrelated posting (e.g.
+  "Marketing Manager") could still surface with a nonzero score. All
+  three are now ported (see "Ported from V1" above) and live-verified
+  against the real profile and real sources.
+- V2's title matching is still binary (100 or 0) with no partial credit
+  for a close-but-not-exact title; V1's tiered
+  `PRIMARY`/`SECONDARY`/`RELATED` system is more forgiving. Not ported -
+  see `docs/ARCHITECTURE.md`'s "Why two matchers exist instead of one"
+  for why this is a design difference, not treated as a remaining gap to
+  close by default.
+- V2's skill matching treats every profile skill as equally weighted;
+  V1's `SKILL_WEIGHTS` favors security-specific skills over general
+  technical ones, and V1 also expands a small alias table (e.g.
+  `"kubernetes"` matches `"k8s"`). Not ported, same reasoning.
+- V2's seniority handling is a percentage-weighted score component (10%
+  of the total); V1 applies much steeper flat-point penalties for
+  senior/lead/manager/architect/director roles on top of everything
+  else. Both down-rank senior roles for this early-career-focused
+  profile, just by different amounts - not ported, same reasoning.
 - Neither matcher currently reads `employment_type` or `remote` as a
   scoring signal, even though `CanonicalJob` carries both fields.

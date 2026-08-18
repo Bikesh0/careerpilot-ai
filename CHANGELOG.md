@@ -1,5 +1,52 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-18 - Port V1's Finnish titles, exclusion list, and experience penalty into V2
+
+Continuing down `NEXT_TASKS.md` (formerly Priority 1, now closed):
+closed the three specific V1-only capabilities identified when the V1/V2
+ranking-unification first shipped - V2's matcher lacked Finnish-language
+title recognition, an exclusion list for obviously unrelated roles, and
+an experience-requirement penalty.
+
+- **Finnish-language titles**: ported as *data*, not code. V1 hardcodes
+  Finnish terms into a `PRIMARY_TITLES` Python constant; V2's title
+  matching has no hardcoded vocabulary at all - it matches against
+  whatever `target_titles` the profile supplies. Added the same four
+  Finnish terms V1 already used to `profiles/profile.json["target_titles"]`
+  (`Tietoturva-asiantuntija`, `Tietoturva-analyytikko`,
+  `Kyberturvallisuusasiantuntija`, `Kyberturvallisuus`) rather than
+  hardcoding them into matcher code - keeps the profile as the single
+  source of truth for candidate-specific data, consistent with this
+  project's existing "don't hardcode personal profile data in Python"
+  principle (which V1's own hardcoded list predates).
+- **`EXCLUDED_TITLE_TERMS`**: ported verbatim as code into
+  `app/search/v2/matching/matcher.py` (generic, not profile-specific). A
+  title match now short-circuits `JobMatcher.score_job()` - the job gets
+  `score=0.0`, a new `MatchResult.excluded=True` field, and a specific
+  reason - and `JobRanker.rank()` drops any excluded job from the ranked
+  output entirely, matching V1's skip-before-scoring behavior exactly
+  (not just a low score).
+- **Required-experience penalty**: ported verbatim thresholds from V1's
+  `_experience_requirement_penalty` (7+ years: -20 ... 2+: -3), backed
+  by a new `extract_required_experience_years()` signal using V1's exact
+  regex patterns, subtracted from V2's weighted score before the final
+  clamp.
+
+Added 8 regression tests across `tests/test_v2_matching_regressions.py`
+(Finnish title matching, exclusion scoring, ranker-level exclusion,
+experience-year extraction, experience penalty) and
+`tests/test_profile_integrity.py` (confirms the real profile file
+contains the Finnish terms). Live-verified against the real profile and
+live sources.
+
+Deliberately **not** ported (a design-philosophy difference, not a gap):
+V1's tiered title-category scoring, weighted skill importance, the skill
+alias table, and V1's much steeper flat seniority-mismatch penalties -
+see `docs/ARCHITECTURE.md`'s "Why two matchers exist instead of one" for
+the reasoning.
+
+Full suite: 63 passed (was 57).
+
 ## 2026-08-18 - Release audit: final security/documentation review
 
 Final pass through the remaining release priorities (security review,

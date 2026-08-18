@@ -13,6 +13,7 @@ class MatchResult:
     skill_score: float = 0.0
     location_score: float = 0.0
     seniority_score: float = 0.0
+    excluded: bool = False
 
     def to_dict(self) -> Dict:
         return {
@@ -25,4 +26,5 @@ class MatchResult:
             "skill_score": self.skill_score,
             "location_score": self.location_score,
             "seniority_score": self.seniority_score,
+            "excluded": self.excluded,
         }
