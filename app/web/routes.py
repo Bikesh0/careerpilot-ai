@@ -241,6 +241,49 @@ def search():
 
 
 # =========================================================
+# SIDEBAR LANDING PAGES
+#
+# The sidebar (templates/base.html) links to /resume,
+# /coverletter, /interview, and /settings. None of these
+# routes existed, so every one of those links 404'd.
+#
+# Resume/cover-letter generation is inherently job-specific
+# (/generate/<id>, /coverletter/<id>), so a bare /resume or
+# /coverletter visit sends the user to the dashboard, where
+# they can pick a job. /interview and /settings render their
+# existing "Coming soon" placeholder templates rather than
+# claiming functionality that doesn't exist yet.
+# =========================================================
+
+@web.route("/resume")
+def resume_landing():
+
+    return redirect("/")
+
+
+@web.route("/coverletter")
+def coverletter_landing():
+
+    return redirect("/")
+
+
+@web.route("/interview")
+def interview():
+
+    return render_template(
+        "interview.html"
+    )
+
+
+@web.route("/settings")
+def settings():
+
+    return render_template(
+        "settings.html"
+    )
+
+
+# =========================================================
 # RESUME
 # =========================================================
 

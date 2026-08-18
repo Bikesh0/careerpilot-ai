@@ -1,5 +1,38 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-18 - Fix: broken sidebar navigation links
+
+While continuing down `NEXT_TASKS.md` after the saved-jobs fix below,
+found that four of the eight links in the dashboard's sidebar
+(`templates/base.html`) - `/resume`, `/coverletter` (bare, no job id),
+`/interview`, `/settings` - had no matching Flask route at all and
+404'd. Also found their two backing templates for a "generate a
+document" landing page, `templates/resume_template.html` and
+`templates/cover_template.html`, were dead/unused (confirmed via a
+repo-wide search for any `render_template()` or Jinja include
+referencing them) and superseded duplicates of the actually-used
+`resume.html`/`coverletter.html` - one of them, `resume_template.html`,
+also had the same Markdown-code-fence corruption bug found in
+`profiles/profile.json` earlier this session, wrapping its entire body
+in a stray ` ``` ` block.
+
+Removed both dead templates. Added `/resume` and `/coverletter` (bare)
+as redirects to the dashboard - generation is inherently job-specific
+(`/generate/<id>`, `/coverletter/<id>`), so there's no meaningful
+standalone page for the un-parameterized link - and `/interview`/
+`/settings` now render their existing, honest "Coming soon" placeholder
+templates instead of 404ing.
+
+Also found, documented but did not build on: `app/web/actions.py`'s
+`WebActions.latest_resume()`/`latest_cover_letter()` look for generated
+files in `resumes/`/`cover_letters/`, but `ResumeGenerator`/
+`CoverLetterGenerator` actually save to `output/` - those helpers would
+never find anything even if wired up. Left as a known gap in
+`NEXT_TASKS.md` rather than fixed opportunistically alongside an
+unrelated navigation fix.
+
+Added `tests/test_sidebar_navigation.py`. Full suite: 44 passed.
+
 ## 2026-08-18 - Fix: saved jobs not saving correctly
 
 Investigated a user-reported issue ("saved jobs are not saving correctly

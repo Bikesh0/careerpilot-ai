@@ -174,8 +174,12 @@ dict, and produces a list of
 `webapp.py` builds the Flask app and registers the single `web` blueprint
 from `app/web/routes.py`. Routes: `/` (dashboard), `/search` (force a
 re-search), `/generate/<id>` (resume), `/coverletter/<id>`, `/save/<id>`,
-`/applications`, `/status/<id>/<status>`, `/delete/<id>`. Debug mode is
-opt-in via `FLASK_DEBUG=1` (see `docs/SECURITY.md`).
+`/applications`, `/status/<id>/<status>`, `/delete/<id>`, plus four
+sidebar-navigation routes that previously 404'd (`/resume` and
+`/coverletter` redirect to the dashboard since generation is
+job-specific; `/interview` and `/settings` render existing "Coming soon"
+placeholders). Debug mode is opt-in via `FLASK_DEBUG=1` (see
+`docs/SECURITY.md`).
 
 ### AI document generation (`app/ai/*_builder.py`, `app/documents/`)
 

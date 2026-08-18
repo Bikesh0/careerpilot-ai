@@ -31,6 +31,7 @@ suite performs a live network request or calls Ollama.
 | `test_source_domain_guard.py` | `WebSourceBase.is_same_site()` accepts same-domain links and rejects absolute off-domain links, per source |
 | `test_routes_v2_job_ids.py` | `_search_jobs()` assigns sequential local ids to V2 results and registers them on `manager.latest_jobs` - a direct regression test for the broken Generate/Save dashboard links |
 | `test_dashboard_save_job.py` | Full dashboard -> `/save/<id>` -> `ApplicationTracker` -> SQLite -> `/applications` flow, using a real Flask test client and an isolated on-disk database: a job saves and persists correctly (including `job_url`, previously silently dropped), appears on the applications page, saving the same job twice does not create a duplicate row, and V2 `CanonicalJob` results save correctly |
+| `test_sidebar_navigation.py` | Every link in `templates/base.html`'s sidebar resolves without a 404 - a direct regression test for four routes (`/resume`, `/coverletter`, `/interview`, `/settings`) that had no matching Flask route at all |
 | `test_greenhouse_source.py` | `GreenhouseSource` field mapping against a mocked HTTP response |
 | `test_persistence_integration.py`, `test_v1_search_integration.py` | V1 search + SQLite persistence, against a temporary database |
 | `test_suitability.py`, `test_filter_and_matching.py` | V1 job-suitability scoring and filtering |

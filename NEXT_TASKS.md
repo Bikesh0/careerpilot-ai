@@ -45,6 +45,21 @@ removed rather than left checked - see git history for what they were.
       into `profiles/profile.json` or presents it for review before
       merging.
 
+## Priority 3b - Fix the resume/cover-letter output directory mismatch
+
+- [ ] `app/web/actions.py`'s `WebActions.latest_resume()`/
+      `latest_cover_letter()` glob `resumes/`/`cover_letters/`, but
+      `app/ai/resume_generator.py`/`cover_letter_generator.py` actually
+      save generated documents to `output/`. `WebActions` would never
+      find anything even if wired up to a route. Found while fixing the
+      broken sidebar navigation links (2026-08-18); not fixed at the
+      time since it's a separate, unrelated gap. Either point
+      `WebActions` at `output/` or make the generators write to
+      `resumes/`/`cover_letters/` - whichever matches the intended
+      final layout - then it becomes a genuine candidate for the bare
+      `/resume`/`/coverletter` routes to show the most recently
+      generated document instead of just redirecting to the dashboard.
+
 ## Priority 4 - Skill-gap / quick-improvement feature
 
 - [ ] Not implemented. V2's `MatchResult.missing_skills` already computes
