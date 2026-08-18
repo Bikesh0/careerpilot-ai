@@ -62,12 +62,33 @@ review - nothing writes to `profiles/profile.json` yet.
 
 ## Priority 4 - Skill-gap / quick-improvement feature
 
-- [ ] Not implemented. V2's `MatchResult.missing_skills` already computes
-      the data needed; V1's `match_details` currently exposes only a
-      count/ratio, not the list - see `docs/PRODUCT_VISION.md`.
-- [ ] When built: keep suggestions realistic (a day to about a week - a
-      short course, a small lab, a focused GitHub project), and never
-      fabricate a completed certification.
+Not implemented. Scoped this session (2026-08-18), and it's a bigger,
+different feature than it first looks like - read this before building
+it:
+
+- [ ] **Semantic gap, not just a missing UI**: both matchers'
+      `missing_skills` mean "profile skills not mentioned in *this job's*
+      text" - i.e. skills you have that this posting doesn't happen to
+      repeat. That's the *inverse* of what "skill gap" naturally means
+      here: skills *the job wants that you don't have*. Genuinely
+      unpossessed skills (e.g. a posting asking for Terraform, which
+      isn't in the profile at all) never appear in `missing_skills` today
+      - they're invisible to the current matcher entirely.
+- [ ] Building the real feature needs requirement extraction *from the
+      job posting text* - either a curated skill taxonomy to scan job
+      descriptions against (deterministic, more maintenance, no
+      hallucination risk) or an LLM call per job (flexible, but adds
+      per-job AI latency/cost and hallucination risk that needs
+      guarding against, consistent with `docs/AI.md`'s "deterministic
+      for matching" principle - lean toward the taxonomy approach unless
+      there's a strong reason not to).
+- [ ] Only after that: map an actually-missing skill to a suggestion.
+      Keep suggestions realistic (a day to about a week - a short
+      course, a small lab, a focused GitHub project) and never fabricate
+      a completed certification. A small curated dict (skill ->
+      suggestion), similar in spirit to `SKILL_WEIGHTS`/the alias table
+      already in `app/ai/matcher.py`, is safer than asking an LLM to
+      invent a learning plan.
 
 ## Priority 5 - Source-level diagnostics
 

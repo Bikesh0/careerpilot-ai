@@ -26,14 +26,18 @@ Match Explanation        IMPLEMENTED
      |                  renders matched_skills - see "In progress" below.
      v
 Skill Gap                 PLANNED
-     |                  Not surfaced anywhere as an actionable suggestion
-     |                  (short course / lab / project). V2's MatchResult
-     |                  already computes a missing_skills list per job
-     |                  (app/search/v2/matching/result.py); V1's
-     |                  match_details currently exposes only a count/ratio,
-     |                  not the list itself, so wiring this up would need
-     |                  either V1 to also return the list, or the dashboard
-     |                  to read it from V2's matcher directly.
+     |                  Not implemented, and not as simple as exposing
+     |                  existing data: both matchers' missing_skills
+     |                  means "profile skills this job's text doesn't
+     |                  mention" - the inverse of "skills the job wants
+     |                  that you don't have." A posting asking for a
+     |                  skill entirely absent from the profile (e.g.
+     |                  Terraform) is invisible to both matchers today.
+     |                  Real skill-gap detection needs requirement
+     |                  extraction from the job text itself - see
+     |                  NEXT_TASKS.md Priority 4 for the scoped options
+     |                  (a curated taxonomy vs. a per-job LLM call) and
+     |                  why the taxonomy approach is the safer default.
      v
 CV Improvement            IN PROGRESS
      |                  /settings/upload-cv accepts a PDF/DOCX upload,
