@@ -159,7 +159,27 @@ def _load_profile():
         return {}
 
 
-def _search_jobs(profile=None):
+# The dashboard route ("/") used to call _search_jobs() unconditionally
+# on every single load whenever V2 is enabled, with no caching at all -
+# meaning every visit re-ran the full multi-source search from scratch,
+# including Jobly's mandatory 10-second-per-request crawl-delay pause
+# (see docs/DATA_SOURCES.md). For ~15-20 Jobly postings that's 2-3
+# minutes, every time, even for a page load seconds after the last one.
+# This cache makes repeat dashboard visits within the TTL reuse the same
+# results instead of re-searching - it changes nothing about how a
+# search is performed or how jobs are matched/ranked once one actually
+# runs. The explicit "Search Jobs" action (/search) always bypasses this
+# and forces a fresh search, since that's the whole point of clicking it.
+_V2_SEARCH_CACHE_TTL_SECONDS = 300
+
+_v2_search_cache = {
+    "jobs": None,
+    "fetched_at": 0.0,
+    "service_factory": None,
+}
+
+
+def _search_jobs(profile=None, force_refresh=False):
     """
     Search using V2 when enabled.
 
@@ -168,6 +188,31 @@ def _search_jobs(profile=None):
     """
 
     if v2_enabled():
+
+        cache_age = time.time() - _v2_search_cache["fetched_at"]
+
+        # Also invalidated if create_v2_service itself has changed
+        # since the cache was filled - in production this reference
+        # never changes between requests, so this has no effect beyond
+        # the TTL. It matters for tests, which monkeypatch
+        # create_v2_service to a fresh fake per test: without this
+        # check, one test's cached jobs would leak into the next.
+        cache_is_fresh = (
+            _v2_search_cache["jobs"] is not None
+            and cache_age < _V2_SEARCH_CACHE_TTL_SECONDS
+            and _v2_search_cache["service_factory"] is create_v2_service
+        )
+
+        if cache_is_fresh and not force_refresh:
+
+            print(
+                f"V2 search: reusing cached results "
+                f"({round(cache_age)}s old)"
+            )
+
+            manager.latest_jobs = _v2_search_cache["jobs"]
+
+            return _v2_search_cache["jobs"]
 
         try:
 
@@ -206,6 +251,10 @@ def _search_jobs(profile=None):
                 jobs.append(item.job)
 
             manager.latest_jobs = jobs
+
+            _v2_search_cache["jobs"] = jobs
+            _v2_search_cache["fetched_at"] = time.time()
+            _v2_search_cache["service_factory"] = create_v2_service
 
             return jobs
 
@@ -446,11 +495,14 @@ def search():
     profile = _load_profile()
 
     # -----------------------------------------------------
-    # Search
+    # Search - always fresh: this is the explicit "Search Jobs"
+    # action, so it must bypass the dashboard's cache rather than
+    # silently reuse old results.
     # -----------------------------------------------------
 
     jobs = _search_jobs(
-        profile=profile
+        profile=profile,
+        force_refresh=True,
     )
 
     # -----------------------------------------------------
