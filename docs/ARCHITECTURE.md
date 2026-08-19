@@ -118,9 +118,18 @@ and assigns each job a local integer `.id` based on its position in
 into `self.latest_jobs`.
 
 Every "act on a specific job" route in the Flask app -
-`/generate/<id>`, `/coverletter/<id>`, `/save/<id>` - resolves the job
-through `manager.get_job(job_id)`, regardless of whether V2 or V1 produced
-the job list. See "The V1/V2 split" for why this matters.
+`/generate/<id>`, `/coverletter/<id>`, `/save/<id>`, `/analyze/<id>`
+(skill-gap analysis, `app/ai/skill_gap.py`), `/interview/<id>` (gated
+interview prep, `app/ai/interview_prep.py`) - resolves the job through
+`manager.get_job(job_id)`, regardless of whether V2 or V1 produced the
+job list. This also means all of them share the same limitation:
+`job_id` is a position in the *current* `manager.latest_jobs` list, not
+a durable identifier, so a job that's fallen out of the latest search
+results (e.g. after a new search) is no longer reachable by that id -
+saved applications persist independently in SQLite (by `job_url`), but
+don't carry enough job data (no description text) to regenerate
+analysis/prep for a job that's no longer in `manager.latest_jobs`. See
+"The V1/V2 split" for why this matters for scoring specifically.
 
 ### The V1/V2 split (read this if nothing else)
 

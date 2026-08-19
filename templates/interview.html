@@ -1,6 +1,88 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Interview Preparation</h2>
-<p>Coming soon...</p>
+
+<h2 class="mb-3">Interview Preparation</h2>
+
+{% if job is none %}
+
+  <p>
+    Interview preparation is generated per job, and only unlocks once
+    that job's saved application status is "Interview" or later on the
+    <a href="/applications">Applications</a> page. It isn't shown
+    before then - practicing for an interview you haven't reached yet
+    isn't useful, and CareerPilot is meant to stay a calm advisor, not
+    add pressure. Once a job reaches interview stage, a
+    "Interview Prep" button appears on that job's dashboard card.
+  </p>
+
+{% elif gated %}
+
+  <p>
+    Interview preparation for
+    <strong>{{ job.title }}</strong> at <strong>{{ job.company }}</strong>
+    isn't available yet - it unlocks once this job's saved application
+    status is "Interview" or later.
+  </p>
+
+  <p class="text-muted">
+    Current status:
+    {{ status if status else "no saved application yet" }}.
+    Update it on the <a href="/applications">Applications</a> page when
+    you reach that stage.
+  </p>
+
+{% else %}
+
+  <p>
+    For <strong>{{ job.title }}</strong> at
+    <strong>{{ job.company }}</strong> (status: {{ status }}).
+  </p>
+
+  <h3 class="mt-4">Technical questions</h3>
+  <ul>
+    {% for q in questions.technical_questions %}
+      <li>{{ q }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3 class="mt-4">Scenario-based questions</h3>
+  <ul>
+    {% for q in questions.scenario_questions %}
+      <li>{{ q }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3 class="mt-4">About your CV</h3>
+  <ul>
+    {% for q in questions.cv_questions %}
+      <li>{{ q }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3 class="mt-4">About your projects &amp; certifications</h3>
+  <ul>
+    {% for q in questions.project_questions %}
+      <li>{{ q }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3 class="mt-4">"Explain this" questions</h3>
+  <ul>
+    {% for q in questions.explain_this_questions %}
+      <li>{{ q }}</li>
+    {% endfor %}
+  </ul>
+
+  <p class="text-muted mt-4">
+    <small>
+      AI-generated (local Ollama), grounded only in your real profile
+      and this job's actual description - never invents experience.
+      The goal is confidence and genuine understanding, not memorizing
+      answers.
+    </small>
+  </p>
+
+{% endif %}
+
 {% endblock %}

@@ -120,11 +120,71 @@ follow-ups, neither urgent:
       catalog - see docs/AI.md's "Skill-gap recommendations make zero
       LLM calls, by design".
 
+## Priority 5 - Multi-visitor session isolation (needed before any public/untrusted demo)
+
+Scoped and deliberately **not built** this session (2026-08-19) - see
+`docs/PRODUCT_VISION.md`'s "Multi-visitor demo mode" and
+`docs/SECURITY.md`'s "Exposing this app to testers via a tunnel". What's
+already safe today: the master profile can't be overwritten by a
+visitor's CV upload (verified with a direct test), and uploads
+themselves are isolated/rate-limited/auto-cleaned. What's genuinely
+missing:
+
+- [ ] Session-scoped profile threading through every route in
+      `app/web/routes.py` (`_load_profile()`, matching, skill-gap, CV
+      strength, resume/cover-letter generation) so a visitor's own
+      uploaded CV drives their own dashboard/search/skill-gap results,
+      instead of everyone seeing the one master profile's results.
+- [ ] CSRF protection on every state-mutating route (`/save/<id>`,
+      `/status/<id>/<status>`, `/delete/<id>`) - required before this app
+      is exposed to anyone beyond a small group of trusted testers who
+      understand the current limitation.
+- [ ] A concurrent-session test (two simultaneous visitors, each with
+      their own uploaded CV, asserting neither sees the other's data and
+      the master profile is untouched) - not meaningful to write until
+      the session-scoping above actually exists.
+
+This is a genuinely large, cross-cutting change - do not attempt a
+partial version (e.g. session-scoping only some routes) without a clear
+plan, since a half-isolated system is worse than a clearly-documented
+single-profile one.
+
+## Priority 6 - Deterministic CV tailoring (reorder, not regenerate)
+
+The product spec describes tailoring as reordering/re-emphasizing a
+~90%-stable master CV per job, not a full rewrite. `app/ai/resume_builder.py`
+currently sends the whole profile to the LLM and asks it to rewrite
+`summary`/`skills`/`experience` from scratch (grounded by prompt, but
+still a full regeneration). Deliberately not rearchitected this session
+- see `docs/PRODUCT_VISION.md`'s "CV tailoring" section for why. If
+picked up: the safer path is likely a deterministic pass (reorder skills
+by relevance to the target job's matched skills, reorder/select
+experience bullets) with the LLM used only for light rewording, not
+structural decisions - not a full replacement of the current approach
+without first proving the deterministic version doesn't regress
+resume quality.
+
+## Priority 7 - Persistent, progressive skill-proficiency tracking
+
+`app/ai/cv_strength.py`'s Basic/Intermediate/Advanced levels are
+computed fresh from the current profile every time - there's no
+persistent store, and no "mark this project/course/lab complete to
+advance a skill" workflow. Building that needs: a small persistent store
+(a new SQLite table, most likely, mirroring `applications`) keyed by
+skill, a UI action to mark a skill-gap recommendation as completed, and
+a decision about how "profile skills" (declarative) and this store
+(evidence-based) relate to each other so they don't silently diverge.
+Not attempted this session - the automatic, evidence-based computation
+already avoids the specific flaw called out in the product spec
+("treating skills as simple present/absent"), so this is a genuine
+enhancement, not a currently-broken promise.
+
 ## Explicitly not planned right now
 
-- Multi-user support / authentication - this is a single-user local
-  tool by design.
 - A hosted LLM provider (OpenAI/Anthropic/etc.) - local Ollama only, by
   design; see `docs/AI.md`.
 - CI/CD - no automated pipeline is configured; not adding one without a
   specific reason to.
+- Gamification (streaks, badges, daily-pressure mechanics), bulk
+  auto-apply, a native mobile app - explicitly out of scope per the
+  product spec's "do not overbuild" section.

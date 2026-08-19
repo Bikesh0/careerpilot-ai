@@ -121,6 +121,32 @@ construction rather than model-generated. It also never invents CV
 content - the "weak evidence" notes only point at real gaps already
 present in `profiles/profile.json`.
 
+### Product thinking, not just feature-building
+
+Given a large, ambitious work order (a full "career advisor" pivot -
+CV-strength scoring, skill proficiency levels, gated interview prep,
+application-funnel insights, multi-visitor demo mode), the response
+wasn't to build all of it shallowly. Each piece was scoped against the
+spec's own stated principle - "a calm AI career advisor... encourage and
+strengthen the user rather than pressure them" - and several explicit,
+documented trade calls were made: interview preparation is gated behind
+a real "Interview" application status rather than always available,
+because generating prep for an interview that hasn't happened yet adds
+noise, not value; "ready to apply" only ever triggers when every
+detected requirement is genuinely covered, never manufactured to give
+the UI something to show; a match-score-improvement estimate is
+computed by re-running the *real* scoring function twice (not a
+separate, unverifiable guess), and is explicitly suppressed when the
+delta wouldn't be meaningful, rather than dressed up to look more useful
+than it is. A large chunk of the same work order (true per-visitor
+session-isolated demo mode) was deliberately *not* built, with the exact
+reason written down (`docs/PRODUCT_VISION.md`) rather than silently
+attempted and left half-working: it would require threading a
+session-scoped profile through nearly every route plus CSRF protection,
+a genuinely large, cross-cutting change that risked destabilizing a
+working, tested single-profile architecture under one session's time
+budget.
+
 ### Error handling
 
 Every job source isolates its own failures (a broken source returns an
@@ -200,15 +226,42 @@ explainable. I also found and fixed a real bug where that AI call had no
 timeout and could hang a web request indefinitely."
 
 **How did you test it?**
-"75 automated tests, all mock/fixture-backed - no live network calls or
+"110 automated tests, all mock/fixture-backed - no live network calls or
 LLM dependency in the suite. Several are regression tests I wrote
 specifically after finding and root-causing a real bug live (a corrupted
 profile file, a scraper reading the wrong title field, broken dashboard
 links, a saved-jobs duplicate bug, a silently-discarded V2 score, a
-sentence-final-punctuation bug that silently hid skill mentions), each
-with a docstring explaining the failure it prevents - and each one I
-verified against the real, live dashboard afterward, not just the test
-suite in isolation."
+sentence-final-punctuation bug that silently hid skill mentions, a
+level/evidence-text contradiction in the CV-strength feature), each with
+a docstring explaining the failure it prevents - and each one I verified
+against the real, live dashboard afterward, not just the test suite in
+isolation. I also added a direct test that hashes the master profile
+file before and after a CV upload, specifically to prove a claim I was
+making in documentation - that visitor uploads can never corrupt the
+master profile - rather than just asserting it."
+
+**Why is interview preparation gated instead of always available?**
+"Because the product's own stated principle is to be a calm advisor,
+not add pressure - and generating interview questions for a job you
+haven't been invited to interview for is exactly the kind of feature
+that looks impressive in a demo but doesn't help the actual user. I
+gated it on the job's real saved application status - it only unlocks
+once that status is 'Interview' or later - and proved the gate works
+with a test that mocks the LLM call and asserts it's never reached
+before that status, not just that the page shows different text."
+
+**How do you decide when to tell the user 'you're ready, apply now'
+versus recommending more work?**
+"Conservatively, on purpose. 'Ready to apply' only fires when the
+skill-gap analysis actually detected requirements *and* every one of
+them is covered - a posting my curated taxonomy couldn't read anything
+from never claims readiness, because that would be false confidence,
+not honesty. And when I show a 'potential match score' for closing a
+gap, it's computed by literally re-running the same scoring function
+twice, not a separate estimate - if the real delta is negligible, the
+UI says so instead of showing an inflated number. I'd rather under-claim
+than oversell something I can't back up with the same code path that
+actually scores the job."
 
 **How is the skill-gap feature different from what the matchers already
 show as "missing skills"?**

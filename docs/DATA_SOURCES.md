@@ -241,3 +241,15 @@ error)` per source and logs `"[<source>] normalized N jobs"` /
 persisted or dashboard-visible source-status report beyond these log
 lines - a reasonable next step if source reliability becomes a recurring
 debugging need (see `NEXT_TASKS.md`).
+
+## Compliance posture is unaffected by how the app is deployed
+
+Exposing the Flask app itself via a tunnel for a small group of testers
+(see `docs/SECURITY.md`) doesn't change anything about how these
+scrapers behave - they still run from wherever the Python process is
+hosted, still send the same `robots.txt`-checked requests, and still
+respect the same `Crawl-delay`/`Disallow` rules regardless of who's
+looking at the resulting dashboard. Duunitori stays disabled and
+Tyomarkkinatori's `/api/` path stays unused under a tunnel exactly as
+they do locally - there is no scenario in which deploying this app
+differently would make circumventing `robots.txt` acceptable.

@@ -257,6 +257,61 @@
     color:var(--muted);
     font-size:.85rem;
   }
+
+  .sg-banner{
+    border-radius:12px;
+    padding:18px 22px;
+    margin-bottom:24px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    font-size:1rem;
+  }
+
+  .sg-banner-ready{
+    background:var(--green-soft);
+    border:1px solid var(--green);
+    color:var(--text);
+  }
+
+  .sg-banner-action{
+    background:var(--brass-soft);
+    border:1px solid var(--brass);
+    color:var(--text);
+  }
+
+  .sg-banner strong{
+    color:var(--brass);
+  }
+
+  .sg-banner-ready strong{
+    color:var(--green);
+  }
+
+  .sg-score-projection{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 20px;
+    margin-bottom:24px;
+    font-size:.88rem;
+  }
+
+  .sg-score-projection .sg-score-numbers{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-size:1.1rem;
+    margin-bottom:6px;
+  }
+
+  .sg-score-projection .sg-score-numbers .arrow{
+    color:var(--muted);
+    margin:0 8px;
+  }
+
+  .sg-score-projection p{
+    margin:0;
+    color:var(--muted);
+  }
 </style>
 
 <div class="sg-wrap">
@@ -276,6 +331,29 @@
       job has no requirements - only that this feature's curated skill
       list didn't recognize any in the text it could read. See the note
       at the bottom of this page for how this detection works.
+    </div>
+  {% endif %}
+
+  <!-- ONE NEXT BEST ACTION -->
+  <div class="sg-banner {{ 'sg-banner-ready' if analysis.ready_to_apply else 'sg-banner-action' }}">
+    {% if analysis.ready_to_apply %}
+      <strong>Ready to apply.</strong>
+    {% else %}
+      <strong>Next step:</strong>
+    {% endif %}
+    <span>{{ analysis.one_next_action.message }}</span>
+  </div>
+
+  {% if analysis.match_score %}
+    <div class="sg-score-projection">
+      <div class="sg-score-numbers">
+        Current match: {{ analysis.match_score.current }}%
+        {% if analysis.match_score.meaningful %}
+          <span class="arrow">&rarr;</span>
+          Potential: ~{{ analysis.match_score.potential }}%
+        {% endif %}
+      </div>
+      <p>{{ analysis.match_score.note }}</p>
     </div>
   {% endif %}
 

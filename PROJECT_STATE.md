@@ -109,9 +109,41 @@ this meant the live dashboard was matching every job against 0 skills/
 titles/locations with no visible error. Fixed; regression test added
 (`tests/test_profile_integrity.py`).
 
+## Career-advisor features (this session)
+
+Verified against the actual code/tests before being claimed as done -
+see `docs/PRODUCT_VISION.md` for the full flow and honest status labels
+(IMPLEMENTED/PARTIAL/PLANNED/BLOCKED/REQUIRES HUMAN DECISION):
+
+- **Layer 1 - CV strength** (`/cv-strength`, `app/ai/cv_strength.py`):
+  job-independent skill proficiency (Basic/Intermediate/Advanced,
+  computed from real evidence), strengths-first, capped/prioritized
+  weaknesses. Zero LLM calls.
+- **Layer 2 additions** to the existing skill-gap engine
+  (`app/ai/skill_gap.py`, `/analyze/<job_id>`): a conservative "ready to
+  apply" signal, a single primary "next best action" instead of a
+  checklist, and an honest match-score-improvement estimate computed by
+  re-running V2's real `JobMatcher.score_job()` - never a guarantee, and
+  explicitly suppressed when the effect wouldn't be meaningful.
+- **Application funnel**: expanded statuses (Second Round, Final Round,
+  No Response added), an `interview_stage_or_later` stat that counts
+  real progress beyond just "Interview", and a one-line adaptive insight
+  on the dashboard (`app/services/application_service._funnel_insight()`).
+- **Gated interview preparation** (`/interview/<job_id>`,
+  `app/ai/interview_prep.py`): AI-generated, grounded, job-specific
+  questions - only unlocked once that job's saved application reaches
+  "Interview" status or later.
+- **CV-upload hardening**: 24-hour retention cleanup, per-IP rate
+  limiting (20/min), and a direct regression test proving the master
+  profile is never modified by an upload.
+- **Explicitly not built**: true per-visitor session-isolated
+  personalization, and a persistent/progressive skill-proficiency store
+  - both documented with reasons in `docs/PRODUCT_VISION.md`, not
+  silently skipped.
+
 ## Tests
 
-Current test result: **75 passed**
+Current test result: **110 passed**
 
 Run with:
 ```powershell
@@ -119,9 +151,9 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 51 of the 75
-tests were added across this and the prior session, each a direct
-regression test for a specific bug found and fixed, or a specific
+Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 86 of the
+110 tests were added across this and the prior two sessions, each a
+direct regression test for a specific bug found and fixed, or a specific
 behavior verified: profile corruption, the ranking module collision, the
 Duunitori title bug, the SSRF-adjacent domain guard, the broken dashboard
 job-action links, a saved-jobs duplicate-record bug (user-reported), four
@@ -129,11 +161,14 @@ broken sidebar navigation links, the CV upload path, the V1/V2
 ranking-unification (V2's own score silently discarded before reaching
 the dashboard), Duunitori/Jobly `robots.txt` compliance (Duunitori
 disabled, Jobly crawl-delay added), the V1-to-V2 matching port (Finnish
-titles, exclusion list, experience penalty), and the new skill-gap
-recommendation engine (required-vs-nice-to-have classification, genuine
-skill-gap detection distinct from the matchers' inverse `missing_skills`,
+titles, exclusion list, experience penalty), the skill-gap recommendation
+engine (required-vs-nice-to-have classification, genuine skill-gap
+detection distinct from the matchers' inverse `missing_skills`,
 CV-evidence notes, a sentence-final-punctuation bug that silently hid
-skill mentions, and the full dashboard-to-analysis route).
+skill mentions), and this session's career-advisor features (ready-to-
+apply/next-action logic, honest match-score projection, a CV-strength
+level/evidence contradiction bug found and fixed, the application
+funnel, gated interview preparation, and CV-upload hardening).
 
 ## Flask
 
@@ -230,6 +265,11 @@ disabled status (needs the site's explicit permission, or an
 official/approved API - no circumvention path is in scope) and
 Tyomarkkinatori's (same, for its own internal API, already built and
 verified but not shipped); building the review-to-profile merge step for
-CV data; fixing the resume/cover-letter output-directory mismatch; and
+CV data; fixing the resume/cover-letter output-directory mismatch;
 low-urgency skill-gap catalog maintenance (expanding taxonomy coverage,
-periodic manual review of the curated certification/course list).
+periodic manual review of the curated certification/course list); and a
+larger, explicitly-deferred item - true multi-visitor session isolation
+with personalized per-visitor results, which needs CSRF protection and
+session-scoped profile threading through nearly every route before it
+would be safe to build (see `docs/PRODUCT_VISION.md` and
+`docs/SECURITY.md`).

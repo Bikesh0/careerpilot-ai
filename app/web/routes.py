@@ -1,5 +1,7 @@
 
+import time
 import uuid
+from collections import defaultdict
 from pathlib import Path
 
 from flask import Blueprint, render_template, redirect, request
@@ -13,8 +15,13 @@ from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
 from app.ai.profile_extractor import ProfileExtractor
 from app.ai.skill_gap import analyze_skill_gap
+from app.ai.cv_strength import analyze_cv_strength
+from app.ai.interview_prep import InterviewPrepBuilder
 from app.parsers.cv_parser import CVParser
-from app.services.application_service import ApplicationService
+from app.services.application_service import (
+    ApplicationService,
+    INTERVIEW_STAGE_STATUSES,
+)
 from app.services.ai_document_service import AIDocumentService
 
 
@@ -35,6 +42,7 @@ profile_loader = ProfileLoader()
 document_ai = AIDocumentService()
 profile_extractor = ProfileExtractor()
 cv_parser = CVParser()
+interview_prep_builder = InterviewPrepBuilder()
 
 
 # =========================================================
@@ -74,6 +82,59 @@ def _save_uploaded_cv(uploaded_file):
     uploaded_file.save(destination)
 
     return destination
+
+
+# CV data is personal data - minimize retention (see docs/SECURITY.md).
+# Every upload attempt does a best-effort sweep for files past this
+# window before saving the new one; a real background scheduler would
+# be overbuilt for a "few users/day" beta demo.
+CV_UPLOAD_RETENTION_SECONDS = 24 * 60 * 60
+
+
+def _cleanup_old_uploads():
+    if not CV_UPLOAD_DIR.exists():
+        return
+
+    cutoff = time.time() - CV_UPLOAD_RETENTION_SECONDS
+
+    for path in CV_UPLOAD_DIR.iterdir():
+        try:
+            if path.is_file() and path.stat().st_mtime < cutoff:
+                path.unlink()
+        except OSError:
+            # Cleanup is best-effort and must never break an upload.
+            continue
+
+
+# Lightweight, dependency-free rate limiting for the one route that
+# accepts a file upload and calls an AI model - relevant mainly if this
+# is ever exposed via a tunnel to more than the owner (see
+# docs/SECURITY.md's "Exposing this app to testers" section). Deliberately
+# in-memory, not persisted - resets on restart, which is an accepted
+# tradeoff for a small local/beta tool, not a production rate limiter.
+_UPLOAD_ATTEMPTS = defaultdict(list)
+UPLOAD_RATE_LIMIT = 20
+UPLOAD_RATE_WINDOW_SECONDS = 60
+
+
+def _upload_rate_limited(remote_addr):
+    now = time.time()
+    attempts = _UPLOAD_ATTEMPTS[remote_addr or "unknown"]
+    attempts[:] = [
+        seen for seen in attempts if now - seen < UPLOAD_RATE_WINDOW_SECONDS
+    ]
+
+    if len(attempts) >= UPLOAD_RATE_LIMIT:
+        return True
+
+    attempts.append(now)
+    return False
+
+
+def _reset_upload_rate_limit():
+    """Test-only helper - clears shared rate-limit state between tests."""
+
+    _UPLOAD_ATTEMPTS.clear()
 
 
 # =========================================================
@@ -247,6 +308,57 @@ def _present_v2_ranked_jobs(jobs):
     return presented
 
 
+def _attach_interview_readiness(ranked):
+    """
+    Flag each ranked job with whether interview preparation should be
+    offered for it - only once a saved application for that exact job
+    (matched by URL) has reached "Interview" status or later. See
+    INTERVIEW_STAGE_STATUSES and the /interview/<job_id> route.
+
+    Deliberately gated here (once, for the whole list) rather than
+    inside the template, so the gating logic lives in one place.
+    """
+
+    service = ApplicationService()
+
+    for item in ranked:
+
+        job = item.get("job")
+
+        job_url = (
+            job.get("url", "")
+            if isinstance(job, dict)
+            else getattr(job, "url", "")
+        )
+
+        status = (
+            service.status_for_job_url(job_url)
+            if job_url else None
+        )
+
+        item["interview_ready"] = status in INTERVIEW_STAGE_STATUSES
+
+    return ranked
+
+
+# =========================================================
+# CV STRENGTH (Layer 1 - general, job-independent analysis)
+# =========================================================
+
+@web.route("/cv-strength")
+def cv_strength():
+
+    profile = _load_profile()
+
+    analysis = analyze_cv_strength(profile)
+
+    return render_template(
+        "cv_strength.html",
+        profile=profile,
+        analysis=analysis,
+    )
+
+
 # =========================================================
 # DASHBOARD
 # =========================================================
@@ -301,6 +413,8 @@ def dashboard():
         profile,
     )
 
+    ranked = _attach_interview_readiness(ranked)
+
     # -----------------------------------------------------
     # Render dashboard
     # -----------------------------------------------------
@@ -342,6 +456,8 @@ def search():
         profile,
     )
 
+    ranked = _attach_interview_readiness(ranked)
+
     service = ApplicationService()
     stats = service.statistics()
 
@@ -362,9 +478,7 @@ def search():
 # Resume/cover-letter generation is inherently job-specific
 # (/generate/<id>, /coverletter/<id>), so a bare /resume or
 # /coverletter visit sends the user to the dashboard, where
-# they can pick a job. /interview and /settings render their
-# existing "Coming soon" placeholder templates rather than
-# claiming functionality that doesn't exist yet.
+# they can pick a job. /settings renders its existing page.
 # =========================================================
 
 @web.route("/resume")
@@ -379,11 +493,88 @@ def coverletter_landing():
     return redirect("/")
 
 
+# =========================================================
+# INTERVIEW PREPARATION
+#
+# Deliberately gated: proactively generating interview prep for a job
+# the user hasn't reached interview stage for would work against the
+# product's "calm advisor, not pressure" principle (see
+# docs/PRODUCT_VISION.md). The bare /interview landing explains the
+# gate; /interview/<job_id> is the real, job-specific, AI-generated
+# page, only reachable once that job's saved application status is
+# "Interview" or later.
+# =========================================================
+
 @web.route("/interview")
 def interview():
 
     return render_template(
-        "interview.html"
+        "interview.html",
+        job=None,
+    )
+
+
+@web.route("/interview/<int:job_id>")
+def interview_prep(job_id):
+
+    job = manager.get_job(job_id)
+
+    if job is None:
+
+        return "Job not found.", 404
+
+    service = ApplicationService()
+
+    status = service.status_for_job_url(
+        getattr(job, "url", "")
+    )
+
+    if status not in INTERVIEW_STAGE_STATUSES:
+
+        return render_template(
+            "interview.html",
+            job=job,
+            gated=True,
+            status=status,
+        )
+
+    profile = _load_profile()
+
+    skill_analysis = analyze_skill_gap(profile, job)
+
+    missing_skills = [
+        entry["skill"]
+        for entry in skill_analysis.get("required", [])
+        if entry["status"] == "missing"
+    ]
+
+    try:
+
+        questions = interview_prep_builder.build(
+            profile,
+            job,
+            missing_skills=missing_skills,
+        )
+
+    except Exception as error:
+
+        print(
+            f"Interview prep generation failed: {error}"
+        )
+
+        return (
+            "AI interview preparation is unavailable right now "
+            "(the local Ollama model did not respond). "
+            "Please try again once Ollama is running.",
+            503,
+        )
+
+    return render_template(
+        "interview.html",
+        job=job,
+        gated=False,
+        status=status,
+        questions=questions,
     )
 
 
@@ -399,6 +590,19 @@ def settings():
 
 @web.route("/settings/upload-cv", methods=["POST"])
 def upload_cv():
+
+    _cleanup_old_uploads()
+
+    if _upload_rate_limited(request.remote_addr):
+
+        return render_template(
+            "settings.html",
+            extracted=None,
+            upload_error=(
+                "Too many upload attempts - please wait a minute and "
+                "try again."
+            ),
+        ), 429
 
     uploaded_file = request.files.get("cv_file")
 
@@ -609,7 +813,8 @@ def applications():
 
     return render_template(
         "applications.html",
-        applications=service.get_all()
+        applications=service.get_all(),
+        stats=service.statistics(),
     )
 
 

@@ -19,21 +19,52 @@ silently assumed.
 **Used for**: resume generation (`app/ai/resume_builder.py` +
 `app/ai/resume_generator.py`), cover-letter generation
 (`app/ai/cover_letter_builder.py` + `app/ai/cover_letter_generator.py`),
-and structured-data extraction from an uploaded CV
-(`app/ai/profile_extractor.py`), reachable from the dashboard via
-`/generate/<id>`, `/coverletter/<id>`, and `/settings/upload-cv`
-respectively. `ProfileExtractor.extract()` was hardened alongside being
-wired up to a live route for the first time: it now tolerates the model
-wrapping its JSON response in a Markdown code fence (the same class of
-bug found in `profiles/profile.json` and `templates/resume_template.html`
-elsewhere in this codebase) by extracting the first `{...}` block rather
-than assuming a bare JSON response, and raises a clear error instead of
-an unhandled `TypeError` if the model doesn't respond at all.
+structured-data extraction from an uploaded CV
+(`app/ai/profile_extractor.py`), and interview-question generation
+(`app/ai/interview_prep.py`) - reachable from the dashboard via
+`/generate/<id>`, `/coverletter/<id>`, `/settings/upload-cv`, and
+`/interview/<job_id>` respectively. `ProfileExtractor.extract()` was
+hardened alongside being wired up to a live route for the first time: it
+now tolerates the model wrapping its JSON response in a Markdown code
+fence (the same class of bug found in `profiles/profile.json` and
+`templates/resume_template.html` elsewhere in this codebase) by
+extracting the first `{...}` block rather than assuming a bare JSON
+response, and raises a clear error instead of an unhandled `TypeError`
+if the model doesn't respond at all.
 
-**Not used for**: matching, ranking, deduplication, filtering, search, or
-skill-gap/recommendation analysis. All of that is deterministic Python
-(`app/search/v2/matching`, `app/search/v2/ranking`, `app/ai/matcher.py`,
-`app/ai/skill_gap.py`) - see `docs/MATCHING_AND_RANKING.md`. This is a
+### Interview preparation - grounded generation, deliberately gated
+
+`InterviewPrepBuilder.build()` is the fourth and newest LLM call site,
+and the only one of the four that's access-controlled rather than always
+available: `/interview/<job_id>` (`app/web/routes.py`) checks the job's
+saved application status via `ApplicationService.status_for_job_url()`
+first, and only calls the LLM if that status is `"Interview"`,
+`"Second Round"`, `"Final Round"`, or `"Offer"` (see
+`INTERVIEW_STAGE_STATUSES` in `app/services/application_service.py`).
+Every other status - including no saved application at all - renders a
+plain explanation of the gate instead, with no AI call made.
+
+This is a product decision, not a technical one: proactively generating
+interview prep for a job the user hasn't reached interview stage for
+would work against the "calm advisor, not pressure" principle (see
+`docs/PRODUCT_VISION.md`) - practicing for an interview that may never
+happen adds noise, not value. The same grounding rule as
+resume/cover-letter generation applies: the prompt explicitly forbids
+inventing experience, employers, or achievements, and every question
+must be traceable to the real job description or the real profile
+supplied in the prompt - this is why interview prep uses the LLM at all
+(generating well-phrased, varied questions genuinely is a
+language-generation task) while skill-gap and CV-strength analysis
+deliberately don't (see "Skill-gap recommendations make zero LLM calls,
+by design" below - the same reasoning doesn't apply to open-ended
+question generation, which has no equivalent "verified catalog" to draw
+from).
+
+**Not used for**: matching, ranking, deduplication, filtering, search,
+skill-gap/recommendation analysis, or CV-strength analysis. All of that
+is deterministic Python (`app/search/v2/matching`,
+`app/search/v2/ranking`, `app/ai/matcher.py`, `app/ai/skill_gap.py`,
+`app/ai/cv_strength.py`) - see `docs/MATCHING_AND_RANKING.md`. This is a
 deliberate design boundary, not an oversight: matching/ranking need to be
 explainable and reproducible ("why did this job rank #3"), which an LLM
 call would make non-deterministic and opaque.
@@ -100,7 +131,8 @@ crash.
 the single local-model client for the whole codebase - used directly by
 `app/ai/analyzer.py`, `app/documents/cover_letter_generator.py`, and (as
 of this consolidation) `ResumeBuilder`/`CoverLetterBuilder`/
-`ProfileExtractor`, which previously went through a separate,
+`ProfileExtractor`/`InterviewPrepBuilder`, which previously went through
+a separate,
 independently-hardened duplicate (`app/ai/ai_engine.py`'s `AIEngine`,
 now removed). `LocalLLM.ask()` gained an optional `system` parameter
 (sent as a leading system-role message) to support those three call

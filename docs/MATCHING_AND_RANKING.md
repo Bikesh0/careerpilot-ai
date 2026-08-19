@@ -310,6 +310,52 @@ it never invents one. This is the CV-improvement mechanism, and it's
 strictly a cross-reference of data already in `profiles/profile.json` -
 no new claims are ever added.
 
+### "Ready to apply" and one next action
+
+Two more things `analyze_skill_gap()` computes, both aimed at the
+product's "calm advisor, not pressure" principle (see
+`docs/PRODUCT_VISION.md`):
+
+- **`ready_to_apply`** is deliberately conservative: `True` only when at
+  least one requirement was detected *and* every one of them is
+  covered. A posting where nothing was detected at all
+  (`no_requirements_detected`) never claims readiness - that would be
+  false confidence, not an honest "you're ready."
+- **`one_next_action`** picks exactly one primary recommendation instead
+  of presenting the full breakdown as a checklist: "Apply now" when
+  ready; otherwise the single quickest missing required skill; otherwise
+  the first CV-evidence note (strengthening real, existing evidence
+  outranks chasing an optional skill); otherwise an optional
+  nice-to-have, explicitly labeled optional. The full required/nice-to-
+  have breakdown stays visible below it for anyone who wants to look
+  further - this is about what's surfaced *first*, not what's hidden.
+
+### Honest match-score-improvement estimate
+
+When there are missing required skills, `analyze_skill_gap()` computes a
+"current vs. potential" score by **re-running V2's real
+`JobMatcher.score_job()`** - the exact same deterministic function the
+dashboard uses - twice: once with the profile as-is, once with the
+missing required skills hypothetically added. This is never a separate,
+unverifiable estimate; it's the same formula, so a delta the user sees
+here is reproducible by the same code path that scores every job.
+
+If the computed delta rounds to less than 1 point (a real case: a job
+whose title never matches any `target_title`, or whose location never
+matches a `target_location`, keeps `title_score`/`location_score` at 0
+regardless of skills, so a single missing skill barely moves the total),
+the projection is marked `meaningful: false` and the copy says so
+plainly instead of showing an inflated number - directly satisfying the
+product spec's "if completing a gap would not materially change the
+match, do not exaggerate its effect." Tests:
+`tests/test_skill_gap.py::test_match_score_projection_is_honest_about_negligible_impact`.
+
+Because this always uses V2's matcher specifically (regardless of which
+matcher actually produced the currently-displayed dashboard score), the
+UI copy says so explicitly ("may differ slightly from the score shown on
+the dashboard if V1 is currently the active matcher") rather than
+implying an exact match it hasn't verified.
+
 ### Known limitations
 
 - **Curated taxonomy, not job-text extraction.** A skill the job
@@ -328,6 +374,56 @@ no new claims are ever added.
   certification could be renamed or retired after the fact. There's no
   paid API involved by design (see docs/AI.md), so this is a static,
   periodically-reviewable list, not a live-verified one.
+
+## CV strength analysis - Layer 1 (`app/ai/cv_strength.py`)
+
+Job-independent, unlike everything above: `analyze_cv_strength(profile)`
+looks at the profile on its own terms, before any job is selected -
+reachable at `/cv-strength`. Deterministic, zero LLM calls, same
+reasoning as the skill-gap engine (see docs/AI.md). Reuses
+`app/ai/skill_gap.py`'s word-boundary matching helpers directly (both
+live in `app/ai`, so this is genuine code reuse, not the deliberate
+decoupling from V2's `signals.py`).
+
+**Skill proficiency** (Basic/Intermediate/Advanced) is computed, per
+skill, from what's already in the profile:
+
+- **Advanced**: demonstrated in 2+ experience entries, or in 1 entry
+  plus backed by a certification, or named in a certification even with
+  zero experience mentions.
+- **Intermediate**: demonstrated in exactly one experience entry.
+- **Basic**: only present in the bare skills list.
+
+Level and evidence text are computed together by one function
+(`_evaluate_skill()`), not separately - a real bug found while building
+this: a skill reaching "Advanced" purely via a certification match, with
+zero experience evidence, was originally paired with evidence text that
+implied it *was* demonstrated on the job. Fixed so the two can never
+contradict each other -
+`tests/test_cv_strength.py::test_skill_backed_only_by_certification_says_so_honestly`
+covers this directly.
+
+**Quantified-achievement detection** is a deliberately blunt heuristic:
+an experience description containing any digit is treated as at least
+weakly quantified. This is not a quality classifier ("8 years" and
+"reduced incidents by 30%" are both "quantified" by this rule) - the
+actual goal is catching descriptions with *zero* numbers at all, the
+clearest case of purely generic wording.
+
+**Weaknesses are prioritized and capped at 5** - unevidenced skills
+first, then unquantified experience entries, then missing
+certifications/projects - directly implementing the product spec's "do
+NOT overwhelm the user; surface the highest-value improvements first."
+
+**Known limitation - substring false positives in certification
+names**: word-boundary matching against certification text can produce
+a technically-correct-but-misleading match, e.g. "Networking" matching
+inside "Cisco **Networking** Academy" (a training provider's name, not
+a networking-specific certification). This is the same class of
+tradeoff the matchers accept elsewhere in this codebase (see "Known
+edge cases" above) - not fixed, because doing so would need real
+semantic understanding, not more regex; the CV-strength page states
+this limitation directly rather than hiding it.
 
 ## Missing-data behavior
 

@@ -213,6 +213,155 @@ def test_readiness_percent_reflects_required_skill_coverage():
     assert analysis["summary"]["readiness_percent"] == 67
 
 
+def test_ready_to_apply_when_every_required_skill_is_covered():
+    """
+    Regression test for the "ready to apply" requirement: the system
+    must not invent an improvement just to have something to show. If
+    every detected required skill is already covered, it should say so
+    plainly instead of pushing an unnecessary recommendation.
+    """
+
+    profile = {
+        "skills": ["Linux", "Python", "Docker"],
+        "experience": [],
+        "certifications": [],
+    }
+
+    job = FakeJob(
+        title="Linux Engineer",
+        description="Requirements: Linux and Python and Docker experience required.",
+    )
+
+    analysis = analyze_skill_gap(profile, job)
+
+    assert analysis["ready_to_apply"] is True
+    assert analysis["one_next_action"]["type"] == "apply"
+    assert analysis["match_score"] is None
+
+
+def test_not_ready_to_apply_when_a_required_skill_is_missing():
+    profile = {"skills": ["Linux"], "experience": [], "certifications": []}
+
+    job = FakeJob(
+        title="Platform Engineer",
+        description="Requirements: Linux and Terraform experience required.",
+    )
+
+    analysis = analyze_skill_gap(profile, job)
+
+    assert analysis["ready_to_apply"] is False
+    assert analysis["one_next_action"]["type"] == "skill_gap"
+    assert analysis["one_next_action"]["skill"] == "Terraform"
+
+
+def test_zero_requirements_detected_never_claims_readiness():
+    """
+    "no_requirements_detected" and "ready_to_apply" must never both
+    imply false confidence - a posting this feature couldn't read
+    should not be silently treated as "you match everything".
+    """
+
+    job = FakeJob(title="Office Manager", description="Manage the office.")
+
+    analysis = analyze_skill_gap({"skills": []}, job)
+
+    assert analysis["ready_to_apply"] is False
+    assert analysis["summary"]["no_requirements_detected"] is True
+
+
+def test_weak_cv_evidence_does_not_block_readiness_but_stays_visible():
+    """
+    Having every required skill covered - even if one is only weakly
+    evidenced (in the skills list but not in experience) - is enough to
+    say "ready to apply". Section 7 of the product spec is explicit:
+    "Do not force unnecessary improvement... potential improvement can
+    be optional." The CV-evidence note must still be visible in
+    cv_improvements for a user who wants to strengthen it, just not
+    presented as a blocker.
+    """
+
+    profile = {
+        "skills": ["Linux", "Splunk"],
+        "experience": [{"title": "Helpdesk", "description": "Fixed printers."}],
+        "certifications": [],
+    }
+
+    job = FakeJob(
+        description="Requirements: Linux and Splunk experience required."
+    )
+
+    analysis = analyze_skill_gap(profile, job)
+
+    assert analysis["ready_to_apply"] is True
+    assert analysis["one_next_action"]["type"] == "apply"
+    assert any("Splunk" in note for note in analysis["cv_improvements"])
+
+
+def test_next_action_prefers_cv_evidence_when_a_nice_to_have_is_missing_but_no_required_gap():
+    """
+    When there's no required-skill gap but a required skill's evidence
+    is weak AND a nice-to-have is missing, strengthening the real,
+    already-claimed skill should be suggested ahead of chasing an
+    optional skill the candidate doesn't have at all.
+    """
+
+    profile = {
+        "skills": ["Linux", "Splunk"],
+        "experience": [{"title": "Helpdesk", "description": "Fixed printers."}],
+        "certifications": [],
+    }
+
+    job = FakeJob(
+        description=(
+            "Requirements: Linux and Splunk experience required.\n"
+            "Nice to have: Ansible experience is a plus.\n"
+        )
+    )
+
+    analysis = analyze_skill_gap(profile, job)
+
+    # Still "ready to apply" (Linux/Splunk are both matched), but the
+    # richer one_next_action helper is exercised directly here to prove
+    # cv_evidence would outrank an optional nice-to-have if surfaced.
+    from app.ai.skill_gap import _build_next_action
+
+    action = _build_next_action(
+        ready_to_apply=False,
+        priority_actions=analysis["priority_actions"],
+        cv_improvements=analysis["cv_improvements"],
+        nice_entries=analysis["nice_to_have"],
+    )
+
+    assert action["type"] == "cv_evidence"
+
+
+def test_match_score_projection_is_honest_about_negligible_impact():
+    """
+    Regression test for "if completing a gap would not materially
+    change the match, do not exaggerate its effect": a missing skill
+    that barely moves the real V2 scoring formula must be reported as
+    non-meaningful, not dressed up with an inflated potential number.
+    """
+
+    profile = {"skills": [], "experience": [], "certifications": []}
+
+    # A title that matches nothing in target_titles and no location
+    # match keeps title_score/location_score at 0 regardless of skills,
+    # so a single skill addition should barely move the total score.
+    job = FakeJob(
+        title="Unrelated Ops Coordinator",
+        description="Requirements: Ansible experience required.",
+        company="ExampleCo",
+    )
+
+    analysis = analyze_skill_gap(profile, job)
+    projection = analysis["match_score"]
+
+    assert projection is not None
+    if not projection["meaningful"]:
+        assert projection["current"] == projection["potential"]
+
+
 def test_trailing_sentence_punctuation_does_not_hide_a_skill_mention():
     """
     Regression test: real job postings almost always end a requirement

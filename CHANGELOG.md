@@ -1,5 +1,93 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-19 - Career-advisor pivot: CV strength, ready-to-apply, gated interview prep, application funnel
+
+Final V2 release/production-readiness work order: verified the existing
+implementation against the actual repository first (traced every claim
+against real code/tests, not prior notes), then extended it. Full
+release status and honest scope boundaries are in
+`docs/PRODUCT_VISION.md`; this entry summarizes what changed.
+
+**Layer 1 - CV strength** (`app/ai/cv_strength.py`, `/cv-strength`, new
+sidebar link): job-independent skill proficiency
+(Basic/Intermediate/Advanced, computed from real evidence in experience
+text and certifications, not just list membership), strengths surfaced
+first, then a capped, prioritized list of the highest-value
+improvements. Zero LLM calls - same reasoning as the existing skill-gap
+engine. Found and fixed a real bug while building it: proficiency level
+and its evidence-text explanation were computed independently and could
+contradict each other (a skill reaching "Advanced" purely via a
+certification match, with zero experience evidence, was paired with
+evidence text implying it *was* demonstrated on the job) - fixed by
+computing both together in one function.
+
+**Layer 2 additions** to `app/ai/skill_gap.py` / `/analyze/<job_id>`:
+
+- **Ready to apply**: conservative by design - only `True` when at least
+  one requirement was detected and every one is covered, never invented
+  to look encouraging.
+- **One next best action**: apply now / close the single quickest
+  missing required skill / strengthen the most useful weak CV evidence /
+  an explicitly-optional nice-to-have - instead of a checklist, with the
+  full breakdown still available below it.
+- **Honest match-score-improvement estimate**: re-runs V2's real
+  `JobMatcher.score_job()` twice (current profile vs. profile with the
+  missing required skills added) - the same deterministic function the
+  dashboard uses, not a separate guess - and is explicitly marked
+  non-meaningful (not exaggerated) when the real delta is negligible.
+
+**Application funnel** (`app/services/application_service.py`,
+`app/database/application_tracker.py`): added Second Round, Final Round,
+and No Response statuses; `interview_stage_or_later` now counts real
+progress (Interview/Second Round/Final Round/Offer) instead of just the
+exact "Interview" status; a new `_funnel_insight()` produces one calm,
+honest observation on the dashboard (e.g. "reaching interviews - focus
+on interview prep next"), requiring a minimum sample size before
+suggesting any direction change so a handful of applications can't
+produce a false signal.
+
+**Gated interview preparation** (`app/ai/interview_prep.py`,
+`/interview/<job_id>`): the fourth LLM call site in this codebase (after
+resume, cover letter, and CV extraction) - grounded the same way (no
+invented experience), but access-controlled: only reachable once a
+job's saved application has actually reached "Interview" status or
+later, via `ApplicationService.status_for_job_url()` and
+`INTERVIEW_STAGE_STATUSES`. A "Interview Prep" button appears on a
+dashboard job card only once that job qualifies.
+
+**CV-upload hardening** (`app/web/routes.py`): 24-hour retention
+cleanup (`_cleanup_old_uploads()`), a lightweight in-memory rate limiter
+(20/min/IP), and a direct regression test hashing the real
+`profiles/profile.json` before and after an upload to prove it's never
+modified - the master-profile-protection guarantee was already true by
+construction (no write path exists), now it's also verified, not just
+asserted.
+
+**Deliberately not built**, with reasons documented in
+`docs/PRODUCT_VISION.md` and `docs/SECURITY.md`: true per-visitor
+session-isolated personalization (would need session-scoped profile
+threading through nearly every route, plus CSRF protection - flagged as
+`NEXT_TASKS.md` Priority 5), a deterministic "reorder don't regenerate"
+CV-tailoring rearchitecture (Priority 6), and a persistent/progressive
+skill-proficiency store with a completion-tracking workflow (Priority
+7). Verified that `app/ai/analyzer.py`/`decision.py`/`suitability.py`/
+`skill_map.py`/`scoring.py`/`target_scorer.py` (pre-existing, V1-CLI-only
+legacy code) don't already cover any of this before building anything
+new.
+
+Added 19 regression tests across `tests/test_cv_strength.py`,
+`tests/test_cv_strength_route.py`, `tests/test_application_funnel.py`,
+`tests/test_status_transitions_route.py`, `tests/test_interview_prep.py`,
+`tests/test_cv_upload_hardening.py`, plus 7 more in the existing
+`tests/test_skill_gap.py`/`tests/test_skill_gap_route.py`. Full suite:
+110 passed (was 91 before this batch, 75 at the start of this session).
+Live-verified through the real Flask dashboard against real, live
+sources.
+
+Updated `README.md`, `docs/PRODUCT_VISION.md`, `docs/MATCHING_AND_RANKING.md`,
+`docs/AI.md`, `docs/PORTFOLIO.md`, `docs/TESTING.md`, `docs/DATA_SOURCES.md`,
+`docs/SECURITY.md`, `PROJECT_STATE.md`, `NEXT_TASKS.md`, and `HANDOFF.md`.
+
 ## 2026-08-19 - Add career-recommendation engine: skill-gap analysis, certifications, courses, projects, CV evidence checks
 
 Verified the original product plan's career-development recommendation

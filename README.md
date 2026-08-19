@@ -43,15 +43,37 @@ Implemented and verified in this repository:
   pipeline)
 - Profile-aware matching: skills, target titles, target locations, and
   seniority, each contributing to a transparent, weighted score
-- A Flask dashboard showing ranked jobs, matched skills, and job metadata
-- Save-job / application tracking with status updates, backed by SQLite,
-  with duplicate-record prevention (by job URL, or company+title as a
-  fallback)
+- **Layer 1 - CV strength analysis** (`/cv-strength`): a general,
+  job-independent look at the profile itself - automatic skill
+  proficiency (Basic/Intermediate/Advanced, computed from real evidence
+  in experience/certifications, not just presence/absence), strengths,
+  and a short, prioritized list of the highest-value improvements - see
+  [docs/MATCHING_AND_RANKING.md](docs/MATCHING_AND_RANKING.md)
+- **Layer 2 - job-specific skill-gap analysis** (a "Skill Gap" button on
+  every dashboard job card): required-vs-nice-to-have skill detection, a
+  genuine gap check against the candidate's real profile (not the
+  inverse "missing_skills" the matchers compute), real hand-curated
+  certification/course/project recommendations, a "ready to apply"
+  signal and one calm "next best action" instead of a checklist, and an
+  honest match-score-improvement estimate computed with the real scoring
+  model - never a guarantee
+- A Flask dashboard showing ranked jobs, matched skills, job metadata,
+  and an adaptive one-line insight about the user's own application
+  funnel (e.g. "reaching interviews - focus on interview prep next")
+- Save-job / application tracking with an expanded status set (Saved,
+  Applied, Interview, Second Round, Final Round, Offer, Rejected, No
+  Response), backed by SQLite, with duplicate-record prevention (by job
+  URL, or company+title as a fallback) - interview-stage progress is
+  counted as real progress even without an offer yet
+- **Gated interview preparation** (`/interview/<job_id>`): AI-generated,
+  job-specific technical/scenario/CV/project questions, only unlocked
+  once that job's saved application has actually reached "Interview"
+  status or later - never pushed proactively
 - AI-assisted resume and cover letter generation via a local Ollama model,
   grounded in the candidate's actual profile (no invented experience)
 - CV upload (PDF/DOCX) with AI-assisted data extraction for review - safe
-  file handling (no client-controlled paths), never auto-merged into the
-  profile
+  file handling (no client-controlled paths), rate-limited, automatically
+  cleaned up after 24 hours, and never auto-merged into the profile
 - Graceful degradation: a slow/unavailable local LLM returns a clear error
   instead of hanging the request; a failing job source doesn't take down the
   rest of the search
@@ -62,6 +84,15 @@ full status):
 - Merging reviewed CV-extracted data into `profiles/profile.json` (the
   upload/extract/review flow above stops short of this deliberately)
 - Browser-automation-based scraping for JavaScript-rendered job boards
+- A true multi-visitor demo mode where each visitor's uploaded CV drives
+  its own personalized dashboard/search/skill-gap results - the current
+  release keeps the CV upload flow session-safe (never touches the
+  master profile, isolated per upload, rate-limited, auto-cleaned) but
+  every visitor's dashboard still reflects the one master
+  `profiles/profile.json` - see [docs/SECURITY.md](docs/SECURITY.md)
+- Deterministic (reorder-not-regenerate) CV tailoring - resume generation
+  currently uses a grounded LLM rewrite of the whole profile per job,
+  not a lighter deterministic reorder of a stable master CV
 
 ## Architecture
 
@@ -203,7 +234,7 @@ return a clear "unavailable" response instead of failing silently.
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-57 tests, all fixture- or mock-backed. The suite performs no live job
+110 tests, all fixture- or mock-backed. The suite performs no live job
 searches and never calls Ollama. Details, including what each test file
 covers, are in [docs/TESTING.md](docs/TESTING.md).
 
@@ -261,15 +292,18 @@ automatically writes to `profiles/profile.json`.
 ## Roadmap
 
 - **Implemented**: V2 search/matching/ranking pipeline, Flask dashboard,
-  save-job/application tracking (duplicate-safe), AI resume and
+  save-job/application tracking with a full interview-stage funnel
+  (duplicate-safe), Layer 1 CV-strength analysis, Layer 2 job-specific
+  skill-gap analysis with honest match-score projection and a single
+  "next best action", gated interview preparation, AI resume and
   cover-letter generation, CV upload with AI-assisted extraction for
-  review, automated test suite.
-- **In progress**: porting V1 `JobMatcher`'s Finnish-language title terms,
-  exclusion list, and experience-requirement penalties into V2's matcher,
-  so its scoring doesn't regress relative to V1's now that the dashboard
-  shows V2's own results directly - see
-  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); merging reviewed CV data
-  into the profile.
+  review (rate-limited, auto-cleaned), automated test suite (110 tests).
+- **Partial by design**: CV tailoring uses a grounded LLM rewrite per
+  job rather than a deterministic reorder of a stable master CV; skill
+  proficiency (Basic/Intermediate/Advanced) is computed fresh from
+  profile data each time, not a persistent store that advances via a
+  "mark this project complete" workflow; merging reviewed CV-upload
+  data into the profile is still review-only, never auto-merged.
 - **Planned**: resolving Duunitori's disabled status (explicit permission
   from Duunitori, and/or an honestly-identifying User-Agent, needed
   before it can be re-registered); getting Tyomarkkinatori's explicit
@@ -277,7 +311,10 @@ automatically writes to `profiles/profile.json`.
   wasn't shipped - `robots.txt` disallows it without permission);
   confirming whether Work in Finland's listings genuinely add coverage
   beyond the existing Jobly source before investing in a separate
-  scraper for it.
+  scraper for it; a true multi-visitor demo mode with per-visitor
+  personalized results (would need session-scoped profile threading
+  through every route plus CSRF protection - see
+  [docs/SECURITY.md](docs/SECURITY.md)).
 
 ## Portfolio Value
 

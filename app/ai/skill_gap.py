@@ -1298,6 +1298,7 @@ def analyze_skill_gap(profile, job):
     required_matched = sum(
         1 for entry in required_entries if entry["status"] == "matched"
     )
+    required_missing_count = required_total - required_matched
     nice_total = len(nice_entries)
     nice_matched = sum(
         1 for entry in nice_entries if entry["status"] == "matched"
@@ -1306,7 +1307,7 @@ def analyze_skill_gap(profile, job):
     summary = {
         "required_total": required_total,
         "required_matched": required_matched,
-        "required_missing": required_total - required_matched,
+        "required_missing": required_missing_count,
         "nice_to_have_total": nice_total,
         "nice_to_have_matched": nice_matched,
         "nice_to_have_missing": nice_total - nice_matched,
@@ -1317,6 +1318,21 @@ def analyze_skill_gap(profile, job):
         "no_requirements_detected": required_total == 0 and nice_total == 0,
     }
 
+    # "Ready to apply" is deliberately conservative: only claimed when
+    # there's at least one detected requirement AND every one of them is
+    # covered. A posting with zero detected requirements never claims
+    # readiness - "no_requirements_detected" already covers that case
+    # honestly instead of implying false confidence.
+    ready_to_apply = required_total > 0 and required_missing_count == 0
+
+    one_next_action = _build_next_action(
+        ready_to_apply, priority_actions, cv_improvements, nice_entries
+    )
+
+    match_score = _estimate_match_score_improvement(
+        profile, job, required_entries
+    )
+
     return {
         "job_title": getattr(job, "title", "") or "",
         "company": getattr(job, "company", "") or "",
@@ -1325,4 +1341,153 @@ def analyze_skill_gap(profile, job):
         "priority_actions": priority_actions,
         "cv_improvements": cv_improvements,
         "summary": summary,
+        "ready_to_apply": ready_to_apply,
+        "one_next_action": one_next_action,
+        "match_score": match_score,
+    }
+
+
+# =============================================================
+# "One next best action" - the calm, focused alternative to a giant
+# checklist. Only one action is surfaced as primary; everything else
+# stays available in the full required/nice-to-have sections above for
+# a user who wants to look further.
+# =============================================================
+
+def _concrete_step(entry):
+    skill = entry["skill"]
+    recommendation = entry.get("recommendation") or {}
+    effort = recommendation.get("effort_days")
+    effort_text = f" (~{effort[0]}-{effort[1]} days)" if effort else ""
+
+    projects = recommendation.get("projects") or []
+    courses = recommendation.get("courses") or []
+
+    if projects:
+        return f"{projects[0]['title']} for {skill}{effort_text}."
+
+    if courses:
+        return (
+            f"{courses[0]['provider']} - {courses[0]['name']} "
+            f"for {skill}{effort_text}."
+        )
+
+    return f"Build practical experience with {skill}{effort_text}."
+
+
+def _build_next_action(ready_to_apply, priority_actions, cv_improvements, nice_entries):
+    if ready_to_apply:
+        return {
+            "type": "apply",
+            "message": (
+                "Your profile already covers this role's required "
+                "skills. Apply now."
+            ),
+        }
+
+    missing_required_actions = [
+        action for action in priority_actions
+        if action["priority"] == "required"
+    ]
+
+    if missing_required_actions:
+        entry = missing_required_actions[0]
+        return {
+            "type": "skill_gap",
+            "message": f"Next best step: {_concrete_step(entry)}",
+            "skill": entry["skill"],
+        }
+
+    if cv_improvements:
+        return {
+            "type": "cv_evidence",
+            "message": f"Next best step: {cv_improvements[0]}",
+        }
+
+    missing_nice = [
+        entry for entry in nice_entries if entry["status"] == "missing"
+    ]
+
+    if missing_nice:
+        entry = missing_nice[0]
+        return {
+            "type": "optional",
+            "message": (
+                f"Optional: {entry['skill']} would strengthen this "
+                "application further, but isn't required - apply "
+                "without it if you're otherwise a good fit."
+            ),
+        }
+
+    return {
+        "type": "apply",
+        "message": "No further gaps found for this posting - apply now.",
+    }
+
+
+# =============================================================
+# Honest match-score-improvement estimate
+#
+# Re-runs V2's real, deterministic JobMatcher.score_job() - the exact
+# same scoring code the dashboard uses when V2 is active - with the
+# missing required skills hypothetically added to the profile. This is
+# never a promise ("closing these gaps will get you to 90%"); it's a
+# transparent re-computation the user can trust because it's the same
+# formula, not a separate, unverifiable estimate.
+# =============================================================
+
+def _v2_score(profile_skills, job):
+    from app.search.v2.matching.matcher import JobMatcher as V2JobMatcher
+
+    matcher = V2JobMatcher(profile_skills=profile_skills)
+    return matcher.score_job(job).score
+
+
+def _estimate_match_score_improvement(profile, job, required_entries):
+    missing_required_display = [
+        entry["skill"]
+        for entry in required_entries
+        if entry["status"] == "missing"
+    ]
+
+    if not missing_required_display:
+        return None
+
+    base_skills = list((profile or {}).get("skills", []) or [])
+
+    try:
+        current = _v2_score(base_skills, job)
+        potential = _v2_score(
+            base_skills + missing_required_display, job
+        )
+    except Exception:
+        # Scoring must never break the rest of the page - if it fails
+        # for any reason, simply omit the projection rather than show a
+        # broken or misleading number.
+        return None
+
+    delta = round(potential) - round(current)
+
+    if delta < 1:
+        return {
+            "current": round(current),
+            "potential": round(current),
+            "meaningful": False,
+            "note": (
+                "Closing these gaps would not meaningfully change your "
+                "match score for this specific posting."
+            ),
+        }
+
+    return {
+        "current": round(current),
+        "potential": round(potential),
+        "meaningful": True,
+        "note": (
+            "Estimated using CareerPilot's V2 skill/title/location/"
+            "seniority scoring model, assuming every missing required "
+            "skill above were added to your profile - not a guarantee, "
+            "and may differ slightly from the score shown on the "
+            "dashboard if V1 is currently the active matcher."
+        ),
     }

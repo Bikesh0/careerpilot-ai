@@ -98,7 +98,26 @@ uploaded CV could have been accidentally committed by a broad `git add`.
 Extracted CV data is displayed for review only - `/settings/upload-cv`
 never writes to `profiles/profile.json` automatically, so a bad or
 AI-hallucinated extraction can't silently corrupt the profile that
-matching, resumes, and cover letters depend on.
+matching, resumes, and cover letters depend on. Verified with a direct
+regression test that hashes the real profile file before and after an
+upload request:
+`tests/test_cv_upload_hardening.py::test_master_profile_is_never_modified_by_a_cv_upload`.
+
+**Added this session** (part of the release work order's "before
+enabling external testing" checklist):
+
+- **Retention**: uploaded CVs are personal data. `/settings/upload-cv`
+  now sweeps `data/cv_uploads/` for files older than 24 hours on every
+  request (`_cleanup_old_uploads()`), best-effort and non-blocking - a
+  cleanup failure never breaks the upload it runs alongside. There is no
+  background scheduler (would be overbuilt for a "few users/day" beta),
+  so a file only gets cleaned up on the *next* upload attempt after it
+  expires, not exactly at the 24-hour mark.
+- **Rate limiting**: a lightweight, dependency-free, in-memory limiter
+  (`_upload_rate_limited()`) caps `/settings/upload-cv` at 20 attempts
+  per minute per client IP, returning `429` past that. Resets on process
+  restart - an accepted tradeoff for a small local/beta tool, not a
+  production-grade limiter.
 
 `app/web/actions.py` (`WebActions`) remains unused - nothing in the
 codebase imports it outside its own file.
@@ -178,13 +197,73 @@ in six months can resolve different patch versions. No automated
 dependency-vulnerability scanning is configured (no `dependabot.yml`, no
 CI at all currently - see `docs/DEVELOPMENT.md`).
 
+## Exposing this app to testers via a tunnel
+
+The release work order asks for this to be shareable with a small
+group (friends, testers, recruiters) via something like Cloudflare
+Tunnel, without building full authentication. What's true about that
+today, checked directly rather than assumed:
+
+- **A tunnel is not an application security control.** Cloudflare
+  Tunnel (or any similar tool) makes a local port reachable from the
+  internet; it does not add authentication, authorization, or CSRF
+  protection to what's behind it. Everything below still applies with a
+  tunnel in front of it.
+- **This release supports one master profile, not per-visitor
+  personalization** - see `docs/PRODUCT_VISION.md`'s "Multi-visitor demo
+  mode" section for exactly what is and isn't isolated. Sharing a tunnel
+  URL today means every visitor sees the *same* dashboard, driven by the
+  one `profiles/profile.json` - safe to share with a few trusted people
+  who understand that, not safe to publish as an open, per-user demo.
+- **Checklist actually gone through this session** before recommending
+  any tunnel exposure, even to trusted testers:
+  - [x] Upload validation, size limits, safe filenames, path-traversal
+    protection - all pre-existing, re-verified (see above).
+  - [x] Upload retention (24h) and rate limiting (20/min/IP) - added
+    this session (see above).
+  - [x] No debug mode by default (`FLASK_DEBUG` opt-in only).
+  - [x] No secrets/config exposed; no raw CV contents logged (parsing
+    errors are logged, not file contents).
+  - [x] Master profile cannot be overwritten by visitor activity
+    (verified with a direct test - see above).
+  - [ ] **CSRF protection** - still not implemented (see "Known
+    limitations" below). `/save/<id>`, `/status/<id>/<status>`,
+    `/delete/<id>` are plain `GET` routes with no token. For a tunnel
+    shared only with people you trust not to run malicious pages while
+    logged into your tunnel URL, this is a real but low-severity risk
+    (worst case: someone tricks a tester into saving/deleting a
+    tester-visible application record - there's no auth boundary to
+    cross since there's no auth at all). **Do not** expose this app
+    publicly or to untrusted parties without adding CSRF tokens first.
+  - [ ] **Session isolation for personalized results** - not built (see
+    `docs/PRODUCT_VISION.md`). Every visitor sees the master profile's
+    dashboard, not their own.
+- **Operational note**: if hosted on a developer's own laptop, the
+  laptop and the Flask process must both keep running for the tunnel to
+  keep serving the app - there's no separate always-on host. For
+  anything beyond a short, supervised testing window, move to a small
+  always-on VPS instead.
+- **Running it**: see the "Running" section above for the local Flask
+  command; point your tunnel tool (e.g. `cloudflared tunnel --url
+  http://127.0.0.1:5000`) at the same host/port Flask is listening on.
+  No CareerPilot-specific configuration is needed for the tunnel itself
+  - the checklist above is what actually matters.
+
 ## Known limitations (stated honestly)
 
 - No CSRF protection on the Flask routes that mutate state (`/save/<id>`,
   `/status/<id>/<status>`, `/delete/<id>` are plain `GET` routes with no
   token). Acceptable for a single-user local tool with no authentication
   layer at all; would need addressing before any multi-user or
-  internet-facing deployment.
+  internet-facing deployment - see "Exposing this app to testers via a
+  tunnel" above for the concrete risk this creates once the app is
+  reachable from outside localhost.
 - No authentication/authorization anywhere - by design, this is a local,
-  single-user tool.
+  single-user tool. A tunnel makes the *port* reachable; it does not add
+  a login.
+- No true per-visitor session isolation for personalized results - every
+  visitor to a shared tunnel URL sees the same master-profile-driven
+  dashboard. CV upload itself is isolated/rate-limited/auto-cleaned (see
+  above), but the dashboard/search/skill-gap pages are not session-
+  scoped. See `docs/PRODUCT_VISION.md`.
 - Runtime dependencies are range-pinned, not hash-pinned or lock-filed.

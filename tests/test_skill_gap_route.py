@@ -91,6 +91,34 @@ def test_analyze_route_renders_required_and_recommended_actions(
     assert "CV / profile improvement suggestions" in body
 
 
+def test_analyze_route_shows_ready_to_apply_banner_when_fully_matched(
+    monkeypatch,
+):
+    """
+    Regression test for the "ready to apply" / "one next best action"
+    UX requirement: a job the candidate already fully matches on
+    required skills should tell them so plainly on the page.
+    """
+
+    jobs = [
+        make_ranked_job(
+            "https://example.test/jobs/1",
+            title="Linux Engineer",
+            description="Requirements: Linux experience required.",
+        )
+    ]
+    client = _client(monkeypatch, jobs)
+
+    client.get("/")
+    response = client.get("/analyze/0")
+
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Ready to apply" in body
+    assert "Apply now" in body
+
+
 def test_analyze_route_returns_404_for_unknown_job_id(monkeypatch):
     jobs = [make_ranked_job("https://example.test/jobs/1")]
     client = _client(monkeypatch, jobs)

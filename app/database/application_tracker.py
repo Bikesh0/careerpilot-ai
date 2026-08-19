@@ -360,3 +360,34 @@ class ApplicationTracker:
         )
 
         return cursor.fetchone()[0]
+
+    def get_status_by_job_url(self, job_url):
+        """
+        Look up the current status of the most recent saved application
+        for a job, by its URL. Returns None if no application has been
+        saved for that job at all - distinct from any real status
+        string, so callers can tell "never saved" apart from a real
+        status.
+        """
+
+        job_url = (job_url or "").strip()
+
+        if not job_url:
+            return None
+
+        cursor = self.db.cursor()
+
+        cursor.execute(
+            """
+            SELECT status
+            FROM applications
+            WHERE job_url = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (job_url,),
+        )
+
+        row = cursor.fetchone()
+
+        return row[0] if row else None
