@@ -20,10 +20,13 @@ silently assumed.
 `app/ai/resume_generator.py`), cover-letter generation
 (`app/ai/cover_letter_builder.py` + `app/ai/cover_letter_generator.py`),
 structured-data extraction from an uploaded CV
-(`app/ai/profile_extractor.py`), and interview-question generation
-(`app/ai/interview_prep.py`) - reachable from the dashboard via
-`/generate/<id>`, `/coverletter/<id>`, `/settings/upload-cv`, and
-`/interview/<job_id>` respectively. `ProfileExtractor.extract()` was
+(`app/ai/profile_extractor.py`), interview-question generation
+(`app/ai/interview_prep.py`), and AI project coaching
+(`app/ai/project_coach.py`) - reachable from the dashboard via
+`/generate/<id>`, `/coverletter/<id>`, `/settings/upload-cv`,
+`/interview/<job_id>`, and `/projects/<id>/plan` + `/projects/<id>/ask` +
+`/projects/<id>/review` + `/projects/<id>/cv-bullet` respectively.
+`ProfileExtractor.extract()` was
 hardened alongside being wired up to a live route for the first time: it
 now tolerates the model wrapping its JSON response in a Markdown code
 fence (the same class of bug found in `profiles/profile.json` and
@@ -31,6 +34,46 @@ fence (the same class of bug found in `profiles/profile.json` and
 extracting the first `{...}` block rather than assuming a bare JSON
 response, and raises a clear error instead of an unhandled `TypeError`
 if the model doesn't respond at all.
+
+### AI project coaching - the one deliberately open-ended use of the LLM
+
+`ProjectCoach` (`app/ai/project_coach.py`) is different in kind from
+every other runtime AI use in this codebase - it's the one place open-
+ended technical help is generated, not a templated document, across
+three methods:
+
+- `plan()` - a concrete day-by-day starting plan with checkpoints for a
+  newly started project, grounded in its title/description.
+- `ask()` - free-form technical Q&A (explain a concept, help write a
+  command, debug an error), grounded in the project's own title/
+  description/notes.
+- `review()` - feedback on work the candidate actually pastes in (code,
+  config, notes, logs) - the prompt is explicit that only the submitted
+  text should be reviewed, nothing assumed beyond it.
+
+This is a deliberate exception to the "zero-LLM for recommendations"
+rule that governs `app/ai/skill_gap.py` and `app/ai/cv_strength.py` -
+the risk category is different. A hallucinated certification name is a
+false factual claim the user might act on unknowingly; an LLM's answer
+to "how do I set up RBAC for this?" or feedback on a pasted Dockerfile
+is understood by both parties to be generated technical guidance to be
+verified against real documentation/testing, the same way any AI coding
+assistant's output is - not a factual claim about the world or the
+candidate.
+
+`ProjectCoach.draft_cv_bullet()` is the one place this session's project
+-tracking work generates CV-facing text, and it's held to the strictest
+grounding of any generation call site: the prompt is given *only* the
+project's own recorded title/description/notes (not the wider candidate
+profile), is explicit that this is personal-project work rather than
+professional experience, and - unlike the other three generation
+builders - is also gated at the *route* level
+(`app/web/routes.py::draft_project_cv_bullet`), not just by prompt
+instruction: it's unreachable unless the project's status is already
+`"Verified"`. The result is always review-only, displayed for the user
+to copy themselves - nothing writes to `profiles/profile.json`
+automatically, the same review-only precedent `/settings/upload-cv`
+already established.
 
 ### Interview preparation - grounded generation, deliberately gated
 
@@ -131,8 +174,8 @@ crash.
 the single local-model client for the whole codebase - used directly by
 `app/ai/analyzer.py`, `app/documents/cover_letter_generator.py`, and (as
 of this consolidation) `ResumeBuilder`/`CoverLetterBuilder`/
-`ProfileExtractor`/`InterviewPrepBuilder`, which previously went through
-a separate,
+`ProfileExtractor`/`InterviewPrepBuilder`/`ProjectCoach`, which
+previously went through a separate,
 independently-hardened duplicate (`app/ai/ai_engine.py`'s `AIEngine`,
 now removed). `LocalLLM.ask()` gained an optional `system` parameter
 (sent as a leading system-role message) to support those three call

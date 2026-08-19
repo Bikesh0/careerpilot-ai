@@ -147,6 +147,8 @@ class ApplicationService:
 
             "no_response": self.tracker.count_status("No Response"),
 
+            "withdrawn": self.tracker.count_status("Withdrawn"),
+
             "interview_stage_or_later": interview_stage_or_later,
 
             "insight": _funnel_insight(

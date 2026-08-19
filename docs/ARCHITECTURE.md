@@ -258,6 +258,40 @@ resolves its database path relative to the current working directory
 passed - worth knowing when writing a test or running the app from an
 unexpected working directory.
 
+`ProjectTracker`/`ProjectService` follow the identical pattern (same
+`data/careerpilot.db` file, same relative-path-unless-overridden
+constructor) for practical, gap-closing projects - see "Project tracking
+and the AI project coach" below.
+
+### Project tracking (`app/database/project_tracker.py`, `app/services/project_service.py`, `app/ai/project_coach.py`)
+
+Turns a Layer 2 skill-gap recommendation into a tracked, evidence
+-producing project. A `projects` table (own tracker/service pair,
+same conventions as `ApplicationTracker`/`ApplicationService`) stores
+one row per project: `skill_key` (the `app.ai.skill_gap.SKILL_CATALOG`
+key, not a display string - what lets `app.ai.cv_strength` recognize a
+Verified project as evidence for a specific skill), title/description
+(copied from the curated catalog at creation time, not re-derived
+later), `status` (`Planned -> In Progress -> Completed -> Verified`,
+only ever changed by `/projects/<id>/status/<status>`), `notes` (append
+-only, accumulates AI-coach Q&A history), and `cv_bullet` (populated
+only once, by `/projects/<id>/cv-bullet`, gated to `status ==
+"Verified"` at the route level).
+
+`ProjectCoach` (`app/ai/project_coach.py`) is a `LocalLLM` consumer like
+the resume/cover-letter/interview-prep builders, but the only one used
+for genuinely open-ended technical help (`ask()`) rather than a grounded
+document - see `docs/AI.md` for why that's a deliberate, narrower
+exception to the "zero-LLM for recommendations" rule than it might first
+appear.
+
+`app/ai/cv_strength.py::analyze_cv_strength()` takes an optional second
+argument, `verified_skill_keys` (from
+`ProjectService.verified_skill_keys()`), so Layer 1's skill-proficiency
+table reflects real, produced project evidence - not just profile text -
+without CV-strength analysis having any dependency on the project
+-tracking layer existing at all (the parameter defaults to `None`).
+
 ## Known dedupe limitation
 
 `CanonicalJob.dedupe_key()` requires an exact match of normalized

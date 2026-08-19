@@ -14,9 +14,12 @@ def test_cv_strength_route_renders_with_the_real_profile():
 
     body = response.get_data(as_text=True)
     assert "CV Strength" in body
-    assert "Strengths" in body
-    assert "Highest-value improvements" in body
-    assert "Skill evidence" in body
+    assert "Your strongest evidence" in body
+    assert "Highest-value next steps" in body
+    assert "Full skill-by-skill breakdown" in body
+    # No internal implementation jargon exposed to the end user.
+    assert "profile.json" not in body
+    assert "deterministic" not in body.lower()
 
 
 def test_sidebar_links_to_cv_strength():

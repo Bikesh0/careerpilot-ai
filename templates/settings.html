@@ -4,15 +4,13 @@
 
 <h2>Settings</h2>
 
-<h3>Upload your CV</h3>
+<h3>Update your CV</h3>
 
 <p>
-    Upload a PDF or DOCX CV to see what CareerPilot AI would extract
-    from it. This is a review-only preview - it does <strong>not</strong>
-    automatically change <code>profiles/profile.json</code>, which
-    remains the single source of truth for matching, resumes, and
-    cover letters. Review the extracted data below and update your
-    profile file yourself if it looks correct.
+    Upload your latest CV and CareerPilot will read through it and show
+    you what it found. Nothing is saved to your profile automatically -
+    you'll always see the extracted details first and can update your
+    profile yourself once you've checked they're accurate.
 </p>
 
 <form
@@ -32,7 +30,7 @@
     </div>
 
     <button type="submit" class="btn btn-primary">
-        Upload and Extract
+        Upload CV
     </button>
 </form>
 
@@ -46,7 +44,7 @@
 
 {% if extracted %}
 
-    <h3>Extracted data (review only)</h3>
+    <h3>Review what we found</h3>
 
     <table class="table table-bordered">
 

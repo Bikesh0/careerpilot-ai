@@ -162,6 +162,22 @@
     color:var(--green);
   }
 
+  .sg-skills{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .sg-skill-chip{
+    background:var(--green-soft);
+    border:1px solid var(--green);
+    color:var(--text);
+    border-radius:999px;
+    padding:6px 14px;
+    font-size:.85rem;
+    font-weight:600;
+  }
+
   .sg-badge-missing{
     background:var(--rust-soft);
     color:var(--rust);
@@ -208,6 +224,23 @@
     margin-top:10px;
     font-size:.78rem;
     color:var(--muted);
+  }
+
+  .sg-start-project{
+    display:inline-block;
+    margin-top:12px;
+    background:var(--brass);
+    color:#1a1305;
+    text-decoration:none;
+    font-weight:600;
+    font-size:.8rem;
+    padding:7px 14px;
+    border-radius:7px;
+  }
+
+  .sg-start-project:hover{
+    color:#1a1305;
+    filter:brightness(1.08);
   }
 
   .sg-priority-list{
@@ -318,19 +351,25 @@
 
   <a href="/" class="sg-back">&larr; Back to dashboard</a>
 
-  <div class="sg-header">
-    <p class="sg-eyebrow">Skill Gap Analysis</p>
-    <h2>{{ analysis.job_title }}</h2>
-    <p>{{ analysis.company }}</p>
+  <div class="sg-header" style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+    <div>
+      <p class="sg-eyebrow">Skill Gap Analysis</p>
+      <h2>{{ analysis.job_title }}</h2>
+      <p>{{ analysis.company }}</p>
+    </div>
+    {% if job.url %}
+      <a class="sg-start-project" href="{{ job.url }}" target="_blank" rel="noopener noreferrer">
+        Apply / View posting
+      </a>
+    {% endif %}
   </div>
 
   {% if analysis.summary.no_requirements_detected %}
     <div class="sg-note">
-      No specific technical skills from CareerPilot's skill catalog were
-      detected in this posting's text. This doesn't necessarily mean the
-      job has no requirements - only that this feature's curated skill
-      list didn't recognize any in the text it could read. See the note
-      at the bottom of this page for how this detection works.
+      We couldn't identify specific technical requirements in this
+      posting's text - that doesn't necessarily mean there are none,
+      just that we couldn't read them automatically. Worth opening the
+      original listing to check yourself.
     </div>
   {% endif %}
 
@@ -371,10 +410,30 @@
       </p>
     </div>
     <div class="sg-stat">
-      <p class="sg-stat-label">Readiness (required skills)</p>
+      <p class="sg-stat-label">Requirement coverage</p>
       <p class="sg-stat-value">{{ analysis.summary.readiness_percent }}%</p>
     </div>
   </div>
+
+  <p class="sg-section-sub" style="margin:-14px 0 24px;">
+    "Requirement coverage" is the share of this posting's detected
+    required skills you already demonstrate - it reflects evidence
+    strength and application readiness, not the dashboard's title/
+    location-weighted "Profile Match" score, and neither one is a
+    probability of getting an interview or the job.
+  </p>
+
+  {% set matched_skills = (analysis.required + analysis.nice_to_have) | selectattr('status', 'equalto', 'matched') | list %}
+  {% if matched_skills %}
+    <div class="sg-section">
+      <h3>You already demonstrate</h3>
+      <div class="sg-skills">
+        {% for item in matched_skills %}
+          <span class="sg-skill-chip">{{ item.skill }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
 
   <!-- REQUIRED SKILLS -->
   <div class="sg-section">
@@ -450,6 +509,12 @@
                 for a focused first pass (not a guarantee).
               </p>
             {% endif %}
+
+            {% if item.recommendation.projects %}
+              <a class="sg-start-project" href="/projects/start/{{ job.id }}/{{ item.key }}">
+                Start this project
+              </a>
+            {% endif %}
           {% endif %}
         </div>
       {% endfor %}
@@ -522,6 +587,12 @@
                 </div>
               {% endif %}
             </div>
+
+            {% if item.recommendation.projects %}
+              <a class="sg-start-project" href="/projects/start/{{ job.id }}/{{ item.key }}">
+                Start this project
+              </a>
+            {% endif %}
           {% endif %}
         </div>
       {% endfor %}
@@ -575,18 +646,6 @@
     {% else %}
       <p class="sg-empty">No evidence gaps found for this posting's matched skills.</p>
     {% endif %}
-  </div>
-
-  <div class="sg-note">
-    <strong>How this works:</strong> skill detection uses a curated,
-    hand-checked list of real, well-known certifications/courses/providers
-    - nothing here is AI-generated, so there's no hallucination risk in
-    what's recommended. Required vs. nice-to-have is a heuristic based on
-    hedging language ("nice to have", "preferred", "a plus", ...) per
-    sentence, not a guaranteed parse of the posting's actual structure.
-    Only skills in CareerPilot's curated catalog can be detected - a
-    requirement using a skill name outside that catalog won't appear
-    here. See <code>docs/MATCHING_AND_RANKING.md</code> for full detail.
   </div>
 
 </div>

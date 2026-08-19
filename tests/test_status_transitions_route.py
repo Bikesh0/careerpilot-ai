@@ -79,6 +79,62 @@ def test_applications_page_shows_funnel_stats(monkeypatch, tmp_path):
     assert "reached interview or later" in body
 
 
+def test_withdrawn_is_a_valid_status_and_counted_separately(
+    monkeypatch, tmp_path
+):
+    jobs = [make_ranked_job("https://example.test/jobs/1")]
+    client = _client(monkeypatch, tmp_path, jobs)
+
+    client.get("/")
+    client.get("/save/0")
+
+    response = client.get("/status/1/Withdrawn")
+    assert response.status_code == 302
+
+    from app.services.application_service import ApplicationService
+
+    stats = ApplicationService().statistics()
+    assert stats["withdrawn"] == 1
+    # Withdrawn is a terminal, non-interview-stage status, like Rejected.
+    assert stats["interview_stage_or_later"] == 0
+
+
+def test_dashboard_explains_what_profile_match_means(monkeypatch, tmp_path):
+    """
+    Regression test for the mission requirement that a bare percentage
+    (which can legitimately be as low as single digits on a title/
+    location mismatch) must never be shown without an explanation of
+    what it actually measures.
+    """
+
+    jobs = [make_ranked_job("https://example.test/jobs/1")]
+    client = _client(monkeypatch, tmp_path, jobs)
+
+    response = client.get("/")
+    body = response.get_data(as_text=True)
+
+    assert "Profile Match" in body
+    assert "not</strong> a probability" in body
+
+
+def test_every_job_card_has_a_working_apply_link(monkeypatch, tmp_path):
+    """
+    Regression test for the mission's explicit requirement: every job
+    shown to the user must have an obvious Apply link pointing at the
+    real external posting URL.
+    """
+
+    job_url = "https://example.test/jobs/1"
+    jobs = [make_ranked_job(job_url)]
+    client = _client(monkeypatch, tmp_path, jobs)
+
+    response = client.get("/")
+    body = response.get_data(as_text=True)
+
+    assert f'href="{job_url}"' in body
+    assert "Apply" in body
+
+
 def test_dashboard_shows_funnel_insight_banner(monkeypatch, tmp_path):
     jobs = [make_ranked_job("https://example.test/jobs/1")]
     client = _client(monkeypatch, tmp_path, jobs)

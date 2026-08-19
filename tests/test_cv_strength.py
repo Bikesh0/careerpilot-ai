@@ -50,6 +50,50 @@ def test_skill_backed_only_by_certification_says_so_honestly():
     assert "not demonstrated" in entry["evidence"]
 
 
+def test_weak_skill_recommendation_carries_a_complete_practical_path():
+    """
+    Regression test for the mission requirement that every important
+    recommendation must answer what/where/how/how-long/why/evidence,
+    not just "add an example" - a weakly-evidenced skill that matches
+    the curated catalog (app.ai.skill_gap.SKILL_CATALOG) must carry the
+    same real project/effort/certification data Layer 2 already uses,
+    plus the catalog key needed to link a "Start this project" button.
+    """
+
+    profile = {
+        "skills": ["Python"],
+        "experience": [{"title": "Helpdesk", "description": "Fixed printers."}],
+        "certifications": [],
+    }
+
+    analysis = analyze_cv_strength(profile)
+    weakness = next(
+        w for w in analysis["weaknesses"]
+        if w["category"] == "skill_evidence" and w["skill"] == "Python"
+    )
+
+    assert weakness["skill_key"] == "python"
+    assert weakness["recommendation"]["projects"]
+    assert weakness["recommendation"]["effort_days"] is not None
+
+
+def test_weak_skill_outside_the_catalog_still_gets_a_plain_suggestion():
+    profile = {
+        "skills": ["Obscure Legacy Mainframe Tool"],
+        "experience": [{"title": "Helpdesk", "description": "Fixed printers."}],
+        "certifications": [],
+    }
+
+    analysis = analyze_cv_strength(profile)
+    weakness = next(
+        w for w in analysis["weaknesses"]
+        if w["category"] == "skill_evidence"
+    )
+
+    assert "recommendation" not in weakness
+    assert "consider adding" in weakness["message"].lower()
+
+
 def test_skill_with_no_evidence_anywhere_is_basic_and_flagged():
     profile = {
         "skills": ["Ansible"],
@@ -154,3 +198,56 @@ def test_empty_profile_does_not_crash_and_returns_a_baseline_strength():
 
     assert analysis["strengths"]
     assert analysis["summary"]["skills_total"] == 0
+
+
+def test_verified_project_strengthens_an_existing_declared_skill():
+    """
+    Regression test for the mission's "real, produced evidence" bar: a
+    Verified project for a skill already in the profile's skills list
+    (but otherwise unevidenced) must upgrade it to Advanced, with
+    evidence text that specifically credits the verified project - not
+    silently reuse the generic certification/experience wording.
+    """
+
+    profile = {
+        "skills": ["Docker"],
+        "experience": [{"title": "Helpdesk", "description": "Fixed printers."}],
+        "certifications": [],
+    }
+
+    analysis = analyze_cv_strength(profile, verified_skill_keys={"docker"})
+    entry = _skill(analysis, "Docker")
+
+    assert entry["level"] == "Advanced"
+    assert "verified practical project" in entry["evidence"]
+
+
+def test_verified_project_surfaces_a_skill_not_yet_in_the_profile():
+    """
+    A Verified project can exist for a skill the candidate hasn't added
+    to their profile's skills list at all - that real, produced
+    evidence must still be visible on the CV-strength page, not
+    silently dropped because it isn't declared yet.
+    """
+
+    profile = {"skills": ["Linux"], "experience": [], "certifications": []}
+
+    analysis = analyze_cv_strength(profile, verified_skill_keys={"terraform"})
+    entry = _skill(analysis, "Terraform")
+
+    assert entry is not None
+    assert entry["level"] == "Advanced"
+    assert "not yet added to your profile" in entry["evidence"]
+
+
+def test_no_verified_projects_behaves_exactly_as_before():
+    profile = {
+        "skills": ["Docker"],
+        "experience": [],
+        "certifications": [],
+    }
+
+    analysis = analyze_cv_strength(profile, verified_skill_keys=set())
+    entry = _skill(analysis, "Docker")
+
+    assert entry["level"] == "Basic"

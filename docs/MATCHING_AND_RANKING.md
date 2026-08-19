@@ -356,6 +356,32 @@ UI copy says so explicitly ("may differ slightly from the score shown on
 the dashboard if V1 is currently the active matcher") rather than
 implying an exact match it hasn't verified.
 
+### Score labels, and why they changed
+
+**Fixed this session**, in direct response to genuinely confusing
+output: a job whose title/location don't match anything in
+`target_titles`/`target_locations` can legitimately score 10-15% even
+with strong skill overlap, since title (40%) and location (15%) are
+more than half the weighted formula. That's mathematically correct, but
+a bare "Match: 11%" reads as "you are a weak candidate," not "this
+posting's title happened not to match."
+
+Both scores are now explicitly labeled and distinguished, not just
+computed correctly:
+
+- The dashboard's gauge is labeled **"Profile Match"**, with a legend
+  above the job list stating what it measures and that it's **not a
+  probability of getting hired or an interview**.
+- The Layer 2 page's `readiness_percent` stat is labeled **"Requirement
+  coverage"** instead of "Readiness", with a line explicitly
+  distinguishing it from the dashboard's Profile Match score - they're
+  different signals (weighted title/location/skill/seniority fit vs.
+  how much of one specific posting's detected requirements the
+  candidate covers), not two names for the same number.
+
+No scoring formula changed - this was a presentation/labeling fix, not
+a recalculation. See `docs/PRODUCT_VISION.md`'s "Match score clarity".
+
 ### Known limitations
 
 - **Curated taxonomy, not job-text extraction.** A skill the job
@@ -386,13 +412,25 @@ live in `app/ai`, so this is genuine code reuse, not the deliberate
 decoupling from V2's `signals.py`).
 
 **Skill proficiency** (Basic/Intermediate/Advanced) is computed, per
-skill, from what's already in the profile:
+skill, from what's already in the profile **plus any Verified projects**
+(`app/database/project_tracker.py`, `app/services/project_service.py`):
 
-- **Advanced**: demonstrated in 2+ experience entries, or in 1 entry
-  plus backed by a certification, or named in a certification even with
-  zero experience mentions.
+- **Advanced**: backed by a Verified practical project (the strongest
+  tier - real, produced evidence), or demonstrated in 2+ experience
+  entries, or in 1 entry plus backed by a certification, or named in a
+  certification even with zero experience mentions.
 - **Intermediate**: demonstrated in exactly one experience entry.
 - **Basic**: only present in the bare skills list.
+
+`analyze_cv_strength(profile, verified_skill_keys)`'s second argument is
+the set of `SKILL_CATALOG` keys with at least one Verified project
+(`ProjectService.verified_skill_keys()`) - optional, so the function
+stays usable/testable without the project-tracking layer at all. A
+Verified project can exist for a skill not yet in the profile's declared
+skills list; that case still surfaces as its own entry (Advanced, with
+evidence text noting it isn't in the skills list yet) rather than being
+silently dropped -
+`tests/test_cv_strength.py::test_verified_project_surfaces_a_skill_not_yet_in_the_profile`.
 
 Level and evidence text are computed together by one function
 (`_evaluate_skill()`), not separately - a real bug found while building

@@ -23,7 +23,7 @@
     font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
   }
 
-  .cvs-wrap h2, .cvs-wrap h3{
+  .cvs-wrap h2, .cvs-wrap h3, .cvs-wrap h4{
     font-family:'Fraunces',Georgia,serif;
   }
 
@@ -51,35 +51,6 @@
     color:var(--muted);
   }
 
-  .cvs-stats{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:14px;
-    margin-bottom:28px;
-  }
-
-  .cvs-stat{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:10px;
-    padding:16px 18px;
-  }
-
-  .cvs-stat-label{
-    font-size:11px;
-    letter-spacing:.1em;
-    text-transform:uppercase;
-    color:var(--muted);
-    margin:0 0 6px;
-  }
-
-  .cvs-stat-value{
-    font-size:1.5rem;
-    font-weight:600;
-    margin:0;
-    font-family:'IBM Plex Mono',ui-monospace,monospace;
-  }
-
   .cvs-section{
     margin-bottom:32px;
   }
@@ -89,33 +60,96 @@
     margin:0 0 12px;
   }
 
-  .cvs-list{
+  .cvs-strengths{
     list-style:none;
     margin:0;
     padding:0;
   }
 
-  .cvs-list li{
+  .cvs-strengths li{
+    background:var(--green-soft);
+    border:1px solid var(--green);
+    border-radius:10px;
+    padding:12px 18px;
+    margin-bottom:10px;
+    font-size:.92rem;
+  }
+
+  .cvs-card{
     background:var(--surface);
     border:1px solid var(--border);
-    border-left:4px solid var(--teal);
+    border-left:4px solid var(--brass);
+    border-radius:12px;
+    padding:20px 24px;
+    margin-bottom:16px;
+  }
+
+  .cvs-card h4{
+    font-size:1.1rem;
+    margin:0 0 6px;
+  }
+
+  .cvs-card-intro{
+    color:var(--text);
+    margin-bottom:14px;
+  }
+
+  .cvs-path{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:14px;
+    margin-bottom:14px;
+    font-size:.85rem;
+  }
+
+  .cvs-path dt{
+    font-size:.7rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--teal);
+    margin-bottom:3px;
+  }
+
+  .cvs-path dd{
+    margin:0;
+    color:var(--text);
+  }
+
+  .cvs-start-btn{
+    display:inline-block;
+    background:var(--brass);
+    color:#1a1305;
+    text-decoration:none;
+    font-weight:600;
+    font-size:.85rem;
+    padding:8px 16px;
+    border-radius:7px;
+  }
+
+  .cvs-start-btn:hover{
+    color:#1a1305;
+    filter:brightness(1.08);
+  }
+
+  .cvs-simple-note{
+    background:var(--surface);
+    border:1px solid var(--border);
     border-radius:10px;
     padding:12px 18px;
     margin-bottom:10px;
     font-size:.88rem;
+    color:var(--text);
   }
 
-  .cvs-list.cvs-weaknesses li{
-    border-left-color:var(--brass);
+  .cvs-details{
+    margin-top:8px;
   }
 
-  .cvs-weak-category{
-    display:inline-block;
-    font-size:.7rem;
-    letter-spacing:.06em;
-    text-transform:uppercase;
-    color:var(--brass);
-    margin-bottom:4px;
+  .cvs-details summary{
+    cursor:pointer;
+    color:var(--teal);
+    font-size:.85rem;
+    margin-bottom:12px;
   }
 
   .cvs-skill-table{
@@ -150,73 +184,28 @@
     white-space:nowrap;
   }
 
-  .cvs-level-advanced{
-    background:var(--green-soft);
-    color:var(--green);
-  }
+  .cvs-level-advanced{ background:var(--green-soft); color:var(--green); }
+  .cvs-level-intermediate{ background:var(--brass-soft); color:var(--brass); }
+  .cvs-level-basic{ background:var(--rust-soft); color:var(--rust); }
 
-  .cvs-level-intermediate{
-    background:var(--brass-soft);
-    color:var(--brass);
-  }
-
-  .cvs-level-basic{
-    background:var(--rust-soft);
-    color:var(--rust);
-  }
-
-  .cvs-evidence{
-    color:var(--muted);
-  }
-
-  .cvs-note{
-    background:var(--surface);
-    border:1px dashed var(--border);
-    border-radius:10px;
-    padding:14px 18px;
-    color:var(--muted);
-    font-size:.85rem;
-  }
+  .cvs-evidence{ color:var(--muted); }
 </style>
 
 <div class="cvs-wrap">
 
   <div class="cvs-header">
-    <p class="cvs-eyebrow">Layer 1 - CV Strength</p>
+    <p class="cvs-eyebrow">CV Strength</p>
     <h2>{{ profile.get("name", "Your Profile") }}</h2>
     <p>
-      A general look at your profile's strength on its own terms, before
-      any specific job is considered. Once you've reviewed this, use
-      <a href="/search" style="color:var(--teal);">Search Jobs</a> and
-      the "Skill Gap" button on a specific posting for job-specific
-      analysis.
+      What's already strong, and the highest-value thing to do next.
+      Once you're ready, head to <a href="/search" style="color:var(--teal);">Search Jobs</a>
+      to see how you match specific roles.
     </p>
   </div>
 
-  <div class="cvs-stats">
-    <div class="cvs-stat">
-      <p class="cvs-stat-label">Skills</p>
-      <p class="cvs-stat-value">{{ analysis.summary.skills_total }}</p>
-    </div>
-    <div class="cvs-stat">
-      <p class="cvs-stat-label">Advanced (evidenced)</p>
-      <p class="cvs-stat-value">{{ analysis.summary.skills_advanced }}</p>
-    </div>
-    <div class="cvs-stat">
-      <p class="cvs-stat-label">Certifications</p>
-      <p class="cvs-stat-value">{{ analysis.summary.certifications_total }}</p>
-    </div>
-    <div class="cvs-stat">
-      <p class="cvs-stat-label">Quantified experience</p>
-      <p class="cvs-stat-value">
-        {{ analysis.summary.experience_quantified }}/{{ analysis.summary.experience_entries }}
-      </p>
-    </div>
-  </div>
-
   <div class="cvs-section">
-    <h3>Strengths</h3>
-    <ul class="cvs-list">
+    <h3>Your strongest evidence</h3>
+    <ul class="cvs-strengths">
       {% for strength in analysis.strengths %}
         <li>{{ strength }}</li>
       {% endfor %}
@@ -224,23 +213,61 @@
   </div>
 
   <div class="cvs-section">
-    <h3>Highest-value improvements</h3>
+    <h3>Highest-value next steps</h3>
+
     {% if analysis.weaknesses %}
-      <ul class="cvs-list cvs-weaknesses">
-        {% for weakness in analysis.weaknesses %}
-          <li>
-            <span class="cvs-weak-category">{{ weakness.category.replace('_', ' ') }}</span><br>
-            {{ weakness.message }}
-          </li>
-        {% endfor %}
-      </ul>
+      {% for weakness in analysis.weaknesses %}
+        <div class="cvs-card">
+          {% if weakness.recommendation %}
+            <h4>{{ weakness.skill }}</h4>
+            <p class="cvs-card-intro">{{ weakness.message }}</p>
+
+            <dl class="cvs-path">
+              {% if weakness.recommendation.projects %}
+                <div>
+                  <dt>Build</dt>
+                  <dd>{{ weakness.recommendation.projects[0].title }}</dd>
+                </div>
+                <div>
+                  <dt>How</dt>
+                  <dd>{{ weakness.recommendation.projects[0].description }}</dd>
+                </div>
+              {% endif %}
+              {% if weakness.recommendation.effort_days %}
+                <div>
+                  <dt>Time</dt>
+                  <dd>~{{ weakness.recommendation.effort_days[0] }}-{{ weakness.recommendation.effort_days[1] }} days</dd>
+                </div>
+              {% endif %}
+              <div>
+                <dt>Evidence afterward</dt>
+                <dd>A GitHub repository with a README - real, checkable proof, not just a claim.</dd>
+              </div>
+            </dl>
+
+            {% if weakness.recommendation.certifications %}
+              <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
+                Also relevant: {{ weakness.recommendation.certifications[0].name }} -
+                {{ weakness.recommendation.certifications[0].why }}
+              </p>
+            {% endif %}
+
+            <a class="cvs-start-btn" href="/projects/start-general/{{ weakness.skill_key }}">
+              Start this project
+            </a>
+          {% else %}
+            <p class="cvs-card-intro" style="margin-bottom:0;">{{ weakness.message }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
     {% else %}
-      <p class="cvs-evidence">No significant gaps found - your profile looks solid.</p>
+      <p class="cvs-simple-note">No significant gaps found - your profile looks solid.</p>
     {% endif %}
   </div>
 
-  <div class="cvs-section">
-    <h3>Skill evidence</h3>
+  <details class="cvs-details">
+    <summary>Full skill-by-skill breakdown</summary>
+
     <div style="overflow-x:auto;">
       <table class="cvs-skill-table">
         <thead>
@@ -265,20 +292,7 @@
         </tbody>
       </table>
     </div>
-  </div>
-
-  <div class="cvs-note">
-    <strong>How this works:</strong> deterministic, zero AI-generated
-    content - proficiency levels and evidence gaps are computed directly
-    from your profile's skills, experience text, and certifications, not
-    invented. Levels are automatic and computed fresh each time from
-    your current profile data; there's no "mark this project complete
-    to level up" tracker yet (see NEXT_TASKS.md). Word-matching is
-    boundary-safe but not semantic - a skill name that happens to appear
-    inside an unrelated phrase (e.g. a training provider's name) can
-    occasionally be credited as evidence; treat this as a strong
-    starting signal; not a certainty.
-  </div>
+  </details>
 
 </div>
 {% endblock %}

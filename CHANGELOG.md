@@ -1,5 +1,78 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-19 - Employment mission: AI-coached projects, real recommendation paths, UI-copy cleanup
+
+Personal employment mission work order: made the product genuinely
+usable end-to-end for its actual first user, not just feature-complete.
+Read the real code/tests before changing anything (per the work order's
+own "first rule"); did not rebuild anything that already worked.
+
+**Investigated a real bug report** ("a job I never applied to appeared
+as Interview-stage"): traced `update_status()`'s only caller
+(`/status/<id>/<status>`, always an explicit click) and confirmed no
+code path changes a status automatically. Root cause was this session's
+own live-verification scripts writing to the real `data/careerpilot.db`
+instead of an isolated copy. Cleared the polluted rows with the user's
+explicit confirmation first (never unilaterally), and established a
+firm rule going forward: any manual verification touching persistence
+must use an isolated working directory, matching what the automated
+test suite already enforces.
+
+**AI-coached practical projects** (`app/database/project_tracker.py`,
+`app/services/project_service.py`, `app/ai/project_coach.py`,
+`/projects`, `/projects/<id>`): the mechanism that turns a
+recommendation into real evidence. Start a project from any Layer 2
+skill-gap recommendation or Layer 1 CV-strength weakness (a new
+job-independent `/projects/start-general/<skill_key>` route). Status
+only ever changes via an explicit click
+(`Planned -> In Progress -> Completed -> Verified` - verified directly
+that nothing changes it as a side effect). The AI coach gives a
+step-by-step starting plan (`plan()`), answers open technical questions
+(`ask()`), and reviews real pasted work (`review()`) - all grounded,
+never claiming completed work that wasn't submitted. A `Verified`
+project drafts a CV bullet (gated at the route level, grounded only in
+the project's own recorded text) and strengthens that skill's evidence
+on the CV-strength page, even for a skill not yet in the profile's
+declared list.
+
+**Layer 1 (CV strength) now gives a complete practical path**: a
+weakly-evidenced skill matching the curated catalog
+(`app/ai/skill_gap.py`'s `SKILL_CATALOG`) shows what to build, how, a
+realistic time estimate, and a "Start this project" button - the same
+real, hand-curated data Layer 2 already used for job-specific gaps,
+instead of a bare "add an example" line.
+
+**Layer 2 (skill gap) leads with strengths**: a "You already
+demonstrate" section now appears before any gap detail, and the page
+gained a direct Apply/View-posting link - found missing during live
+verification (the dashboard card had one, this deeper analysis page
+didn't).
+
+**Match-score labels double-checked**: "Profile Match" and "Requirement
+coverage" (relabeled/explained in the prior session) confirmed still
+correct and re-tested.
+
+**UI copy cleanup**: removed internal implementation language from user
+-facing pages - "How this works: deterministic, zero AI-generated
+content...", `profiles/profile.json` file-path references, "review-only
+preview" phrasing - from `skill_gap.html`, `cv_strength.html`, and
+`settings.html`. That reasoning now lives only in `docs/`. Added
+`Withdrawn` as an application status (was missing from the funnel).
+
+Added 24 new regression tests (project tracking/routes, the plan/review
+AI-coach actions, the job-independent start-project route, the CV
+-strength recommendation-path enrichment, UI-jargon-absence checks, and
+the Apply-link checks on both the dashboard and the skill-gap page).
+Full suite: 148 passed (was 134 at the end of the prior session's
+batch). Live-verified end-to-end in an isolated working directory (CV
+strength -> start project -> save job -> mark Interview -> Interview
+Prep button appears -> gated route -> applications page), correctly
+never touching the real database this time.
+
+Updated `docs/PRODUCT_VISION.md`, `docs/AI.md`, `docs/TESTING.md`,
+`docs/PORTFOLIO.md`, `README.md`, `PROJECT_STATE.md`, `NEXT_TASKS.md`,
+and `HANDOFF.md`.
+
 ## 2026-08-19 - Career-advisor pivot: CV strength, ready-to-apply, gated interview prep, application funnel
 
 Final V2 release/production-readiness work order: verified the existing

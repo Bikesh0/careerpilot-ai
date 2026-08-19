@@ -147,6 +147,23 @@ a genuinely large, cross-cutting change that risked destabilizing a
 working, tested single-profile architecture under one session's time
 budget.
 
+### AI-coached practical projects, with the same discipline the recommendation engine uses
+
+"Recommend a project" is easy; making sure the resulting evidence is
+real is the hard part. The project-tracking feature
+(`app/database/project_tracker.py`, `app/ai/project_coach.py`) enforces
+that a project's status only ever changes by an explicit user click -
+verified with a direct test, not just claimed - and gates the one place
+this system generates CV-facing text (a bullet point) behind two
+independent checks: the project must already be marked `Verified`
+(checked at the route level, not just implied by a prompt instruction),
+and the drafting prompt is given *only* the project's own recorded
+description - never the wider profile - so nothing can leak in that the
+candidate didn't actually say they did. The AI coaching itself
+(open-ended technical Q&A) is the one deliberate exception to this
+project's "zero-LLM for recommendations" rule, and the reasoning for
+exactly where that line sits is written down, not assumed.
+
 ### Error handling
 
 Every job source isolates its own failures (a broken source returns an
@@ -226,19 +243,20 @@ explainable. I also found and fixed a real bug where that AI call had no
 timeout and could hang a web request indefinitely."
 
 **How did you test it?**
-"110 automated tests, all mock/fixture-backed - no live network calls or
+"148 automated tests, all mock/fixture-backed - no live network calls or
 LLM dependency in the suite. Several are regression tests I wrote
 specifically after finding and root-causing a real bug live (a corrupted
 profile file, a scraper reading the wrong title field, broken dashboard
 links, a saved-jobs duplicate bug, a silently-discarded V2 score, a
 sentence-final-punctuation bug that silently hid skill mentions, a
-level/evidence-text contradiction in the CV-strength feature), each with
-a docstring explaining the failure it prevents - and each one I verified
-against the real, live dashboard afterward, not just the test suite in
-isolation. I also added a direct test that hashes the master profile
-file before and after a CV upload, specifically to prove a claim I was
-making in documentation - that visitor uploads can never corrupt the
-master profile - rather than just asserting it."
+level/evidence-text contradiction in the CV-strength feature, an
+unencoded-space bug in a project-status link), each with a docstring
+explaining the failure it prevents - and each one I verified against the
+real, live dashboard afterward, not just the test suite in isolation. I
+also added a direct test that hashes the master profile file before and
+after a CV upload, specifically to prove a claim I was making in
+documentation - that visitor uploads can never corrupt the master
+profile - rather than just asserting it."
 
 **Why is interview preparation gated instead of always available?**
 "Because the product's own stated principle is to be a calm advisor,
@@ -290,6 +308,50 @@ the same deterministic word-boundary matching the ranking matchers use.
 Every recommendation is verifiable by construction because a human
 picked it, not a model - there's nothing 'AI-generated' in there to
 mislabel."
+
+**How does a recommended project turn into something you can actually
+put on a CV?**
+"That was the piece I was most careful about, because it's exactly
+where a career tool could quietly start lying for you. Starting a
+project just copies the curated recommendation - same source as the
+zero-LLM skill-gap catalog - into a tracked record with status
+'Planned'. Nothing about status ever changes except an explicit click;
+I have a test that creates a project and repeatedly re-reads it to
+prove nothing flips it automatically. The CV-bullet button is disabled
+until I mark it 'Verified' myself, and that's enforced in the route, not
+just implied by a prompt - and when it does draft a bullet, the prompt
+only gets the project's own recorded description, never my wider
+profile, so it can't accidentally borrow language from an unrelated
+job or invent a detail I didn't write down."
+
+**Where do you draw the line on using the LLM for open-ended help versus
+keeping something deterministic?**
+"By what kind of claim is being made. A certification recommendation or
+a CV-evidence note is a factual claim someone could act on without
+double-checking - that has to be curated and verifiable, so it stays
+zero-LLM everywhere in this app. An answer to 'how do I configure RBAC
+for this' is understood by anyone using an AI coding assistant to be
+generated guidance you verify yourself, the same category as asking any
+AI pair-programmer a question - so that's the one place I actually used
+the LLM for open-ended reasoning instead of a curated catalog."
+
+**Tell me about a mistake you caught in your own work, recently.**
+"While live-testing the application status flow, I noticed a job
+showing as 'Interview' that I knew hadn't actually reached that stage.
+Instead of just fixing the display, I traced the real code path first -
+the status-change function has exactly one caller, an explicit route
+that only fires on a user click, and I confirmed directly there's no
+automatic status change anywhere. So the application logic was correct.
+The actual cause was my own testing: I'd been calling routes directly
+against the real local database instead of an isolated copy, the way my
+automated test suite already does correctly. I found the specific
+polluted rows, asked before deleting anything from what's nominally the
+user's real data even though I'd caused the problem, and only cleared
+it once they confirmed. Then I wrote down the rule going forward - any
+manual verification touching persistence uses an isolated directory -
+and about ten minutes later did the exact same thing again during a
+quick smoke check, caught it the same way, fixed it the same way. I'd
+rather show that than pretend it only happened once."
 
 **What would you improve next?**
 "Get real data out of Duunitori and Tyomarkkinatori - both need the

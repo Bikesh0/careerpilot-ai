@@ -1226,6 +1226,7 @@ def analyze_skill_gap(profile, job):
         has_skill = _contains_any(candidate_text, aliases)
 
         result = {
+            "key": key,
             "skill": entry["display"],
             "priority": priority,
             "status": "matched" if has_skill else "missing",

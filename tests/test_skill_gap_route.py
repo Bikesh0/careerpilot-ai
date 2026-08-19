@@ -119,6 +119,98 @@ def test_analyze_route_shows_ready_to_apply_banner_when_fully_matched(
     assert "Apply now" in body
 
 
+def test_analyze_route_shows_already_demonstrated_skills_first(monkeypatch):
+    """
+    Regression test for the mission's "do not simply display a missing
+    skills wall" requirement: a positive "You already demonstrate"
+    section must exist and list matched skills, separate from the
+    detailed required/nice-to-have gap breakdown below it.
+    """
+
+    jobs = [
+        make_ranked_job(
+            "https://example.test/jobs/1",
+            description=(
+                "Requirements: Linux and Python experience required.\n"
+                "Nice to have: Docker is a plus.\n"
+            ),
+        )
+    ]
+    client = _client(monkeypatch, jobs)
+
+    client.get("/")
+    response = client.get("/analyze/0")
+    body = response.get_data(as_text=True)
+
+    assert "You already demonstrate" in body
+    demonstrate_idx = body.index("You already demonstrate")
+    required_idx = body.index("<h3>Required skills</h3>")
+    assert demonstrate_idx < required_idx
+
+    chip_section = body[demonstrate_idx:required_idx]
+    assert "sg-skill-chip" in chip_section
+    assert "Linux" in chip_section
+
+
+def test_analyze_route_clarifies_the_score_is_not_a_probability(monkeypatch):
+    """
+    Regression test for the mission requirement that a match score must
+    never be presented as (or read as) a probability of getting an
+    interview or the job.
+    """
+
+    jobs = [make_ranked_job("https://example.test/jobs/1")]
+    client = _client(monkeypatch, jobs)
+
+    client.get("/")
+    response = client.get("/analyze/0")
+    body = response.get_data(as_text=True)
+
+    # The template wraps this sentence across a source line, so the raw
+    # HTML contains a literal newline where a browser would render a
+    # collapsed space - normalize whitespace before comparing.
+    normalized = " ".join(body.lower().split())
+    assert "neither one is a probability" in normalized
+
+
+def test_analyze_route_shows_an_apply_link(monkeypatch):
+    """
+    Regression test: the Skill Gap analysis page is a real destination
+    a candidate reviews before applying - it must have a clear Apply
+    link to the real posting, not just the dashboard card.
+    """
+
+    job_url = "https://example.test/jobs/1"
+    jobs = [make_ranked_job(job_url)]
+    client = _client(monkeypatch, jobs)
+
+    client.get("/")
+    response = client.get("/analyze/0")
+    body = response.get_data(as_text=True)
+
+    assert f'href="{job_url}"' in body
+    assert "Apply" in body
+
+
+def test_analyze_route_hides_internal_implementation_jargon(monkeypatch):
+    """
+    Regression test for the mission's UI-copy requirement: internal
+    implementation details (module names, "deterministic", "zero
+    AI-generated content" etc.) belong in docs/, not the product UI.
+    """
+
+    jobs = [make_ranked_job("https://example.test/jobs/1")]
+    client = _client(monkeypatch, jobs)
+
+    client.get("/")
+    response = client.get("/analyze/0")
+    body = response.get_data(as_text=True)
+
+    assert "How this works" not in body
+    assert "hand-checked list" not in body
+    assert "SKILL_CATALOG" not in body
+
+
 def test_analyze_route_returns_404_for_unknown_job_id(monkeypatch):
     jobs = [make_ranked_job("https://example.test/jobs/1")]
     client = _client(monkeypatch, jobs)

@@ -21,25 +21,35 @@ the deliberate decoupling from `app/search/v2/matching/signals.py`
 
 import re
 
-from app.ai.skill_gap import _contains_any
+from app.ai.skill_gap import SKILL_CATALOG, _contains_any
 
 
 # =============================================================
 # Skill proficiency
 #
-# A deliberately scoped, automatic proficiency signal computed from
-# what's already in profiles/profile.json today (experience text,
-# certifications) - NOT a persistent, progressively-advancing store
-# with a "mark this project complete" workflow. That richer version
-# (Basic -> Intermediate -> Advanced via completed projects/labs over
-# time) is intentionally not built this session - see NEXT_TASKS.md.
-# What's here still avoids treating skills as simple present/absent:
-# a skill named in a certification or demonstrated in 2+ experience
-# entries is a materially different claim than a skill that only
-# appears in the bare skills list.
+# An automatic proficiency signal computed from what's already in
+# profiles/profile.json (experience text, certifications) PLUS any
+# Verified practical projects (app/database/project_tracker.py,
+# app/services/project_service.py) - the strongest evidence tier,
+# since it represents real, produced work (GitHub repo, README,
+# findings), not just a claim. This avoids treating skills as simple
+# present/absent: a skill named in a certification, demonstrated in
+# experience, or backed by a verified project is a materially
+# different claim than one that only appears in the bare skills list.
+#
+# What's still not built: an in-between "In Progress" contribution to
+# proficiency, or a skill fading back down if evidence is later
+# removed - level is always recomputed fresh from current data, not a
+# persistent score that accumulates independently of the underlying
+# evidence. See NEXT_TASKS.md.
 # =============================================================
 
-def _evaluate_skill(skill, experience_entries, certifications_text):
+def _evaluate_skill(
+    skill,
+    experience_entries,
+    certifications_text,
+    has_verified_project=False,
+):
     """
     Returns (level, evidence_text) for one profile skill.
 
@@ -56,7 +66,13 @@ def _evaluate_skill(skill, experience_entries, certifications_text):
     )
     has_certification = _contains_any(certifications_text, [skill])
 
-    if mention_count >= 2:
+    if has_verified_project:
+        level = "Advanced"
+        evidence = (
+            "Backed by a verified practical project - real, produced "
+            "evidence. See your Projects page."
+        )
+    elif mention_count >= 2:
         level = "Advanced"
         evidence = "Demonstrated in multiple experience entries."
     elif mention_count == 1 and has_certification:
@@ -97,13 +113,35 @@ def _is_thin(description):
     return len(str(description or "").strip()) < 40
 
 
+def _find_catalog_entry(skill_text):
+    """
+    Match a profile skill string back to its SKILL_CATALOG key, if any -
+    lets a "weakly evidenced" finding carry the same real, curated
+    what/where/how/time recommendation Layer 2 (app/ai/skill_gap.py)
+    already uses for job-specific gaps, instead of a bare "add an
+    example" line with no concrete path.
+    """
+
+    for key, entry in SKILL_CATALOG.items():
+        if _contains_any(skill_text, entry["aliases"]):
+            return key, entry
+
+    return None, None
+
+
 # =============================================================
 # Main entry point
 # =============================================================
 
-def analyze_cv_strength(profile):
+def analyze_cv_strength(profile, verified_skill_keys=None):
     """
     General, job-independent CV/profile strength analysis.
+
+    ``verified_skill_keys``: skill_key values (app.ai.skill_gap.SKILL_CATALOG
+    keys) with at least one Verified project - see
+    app.services.project_service.ProjectService.verified_skill_keys().
+    Optional so this function stays usable/testable without the
+    project-tracking layer.
 
     Returns a dict shaped for direct template rendering:
 
@@ -116,6 +154,7 @@ def analyze_cv_strength(profile):
     """
 
     profile = profile or {}
+    verified_skill_keys = verified_skill_keys or set()
     skills = [str(skill) for skill in profile.get("skills", []) or []]
     experience = profile.get("experience", []) or []
     certifications = profile.get("certifications", []) or []
@@ -131,16 +170,49 @@ def analyze_cv_strength(profile):
     # ---------------------------------------------------------
 
     skill_entries = []
+    matched_verified_keys = set()
 
     for skill in skills:
+        has_verified_project = False
+
+        for key in verified_skill_keys:
+            entry = SKILL_CATALOG.get(key)
+
+            if entry and _contains_any(skill, entry["aliases"]):
+                has_verified_project = True
+                matched_verified_keys.add(key)
+
         level, evidence = _evaluate_skill(
-            skill, experience_descriptions, certifications_text
+            skill,
+            experience_descriptions,
+            certifications_text,
+            has_verified_project,
         )
 
         skill_entries.append({
             "skill": skill,
             "level": level,
             "evidence": evidence,
+        })
+
+    # A verified project can exist for a skill that isn't in the
+    # profile's declared skills list at all yet - real, produced
+    # evidence for a genuinely new capability shouldn't be invisible
+    # just because the skills list hasn't been updated.
+    for key in verified_skill_keys - matched_verified_keys:
+        entry = SKILL_CATALOG.get(key)
+
+        if not entry:
+            continue
+
+        skill_entries.append({
+            "skill": entry["display"],
+            "level": "Advanced",
+            "evidence": (
+                "Backed by a verified practical project, but not yet "
+                "added to your profile's skills list - consider adding "
+                f"{entry['display']} explicitly."
+            ),
         })
 
     basic_unevidenced = [
@@ -201,15 +273,32 @@ def analyze_cv_strength(profile):
     weaknesses = []
 
     for entry in basic_unevidenced[:3]:
-        weaknesses.append({
+        catalog_key, catalog_entry = _find_catalog_entry(entry["skill"])
+
+        weakness = {
             "category": "skill_evidence",
+            "skill": entry["skill"],
             "message": (
-                f"{entry['skill']} is listed as a skill but isn't "
-                "demonstrated anywhere in your experience - consider "
-                "adding a specific example, or a small project, if you "
-                "have relevant experience."
+                f"{entry['skill']} is already on your profile - the "
+                "missing piece is practical evidence."
             ),
-        })
+        }
+
+        if catalog_entry:
+            weakness["skill_key"] = catalog_key
+            weakness["recommendation"] = {
+                "certifications": catalog_entry.get("certifications", []),
+                "courses": catalog_entry.get("courses", []),
+                "projects": catalog_entry.get("projects", []),
+                "effort_days": catalog_entry.get("effort_days"),
+            }
+        else:
+            weakness["message"] += (
+                " Consider adding a specific example, or a small "
+                "project, if you have relevant experience."
+            )
+
+        weaknesses.append(weakness)
 
     for item, description in list(zip(experience, experience_descriptions))[:5]:
         if not _is_quantified(description):

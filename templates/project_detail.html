@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  :root{
+    --surface:#121B2E;
+    --border:#233047;
+    --text:#E9E6DC;
+    --muted:#8B96AC;
+    --brass:#C9973F;
+    --teal:#4FA6A0;
+    --green:#4CAF6D;
+    --rust:#C9573F;
+  }
+
+  .pd-wrap{ color:var(--text); font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif; }
+  .pd-wrap h2, .pd-wrap h3{ font-family:'Fraunces',Georgia,serif; }
+
+  .pd-back{ color:var(--teal); text-decoration:none; font-size:.85rem; display:inline-block; margin-bottom:14px; }
+
+  .pd-status-row{ display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 22px; }
+  .pd-status-btn{
+    padding:6px 14px; border-radius:999px; font-size:.78rem; font-weight:600;
+    text-decoration:none; border:1px solid var(--border); color:var(--muted);
+  }
+  .pd-status-btn.pd-active{
+    background:rgba(79,166,160,.14); color:var(--teal); border-color:var(--teal);
+  }
+
+  .pd-section{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:16px 20px; margin-bottom:18px;
+  }
+  .pd-section h3{ font-size:1rem; margin:0 0 10px; }
+
+  .pd-notes{ white-space:pre-wrap; font-size:.85rem; color:var(--text); }
+
+  .pd-form textarea{
+    width:100%; min-height:80px; background:#0B1220; color:var(--text);
+    border:1px solid var(--border); border-radius:8px; padding:10px; font-family:inherit;
+  }
+  .pd-form button, .pd-action-btn{
+    margin-top:10px; background:var(--brass); color:#1a1305; border:none;
+    padding:8px 16px; border-radius:7px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block;
+  }
+
+  .pd-error{
+    background:rgba(201,87,63,.14); border:1px solid var(--rust); color:var(--text);
+    border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:.85rem;
+  }
+
+  .pd-bullet{
+    background:#0B1220; border:1px solid var(--border); border-radius:8px;
+    padding:12px 16px; font-size:.9rem; margin-top:10px;
+  }
+
+  .pd-note{ color:var(--muted); font-size:.8rem; }
+</style>
+
+<div class="pd-wrap">
+  <a href="/projects" class="pd-back">&larr; All projects</a>
+
+  <h2>{{ project.title }}</h2>
+  <p class="pd-note">{{ project.skill_display }} &middot; started {{ project.created_date }}</p>
+
+  <div class="pd-status-row">
+    {% for status in statuses %}
+      <a
+        class="pd-status-btn {{ 'pd-active' if project.status == status else '' }}"
+        href="/projects/{{ project.id }}/status/{{ status | urlencode }}"
+      >{{ status }}</a>
+    {% endfor %}
+  </div>
+
+  {% if coach_error %}
+    <div class="pd-error">{{ coach_error }}</div>
+  {% endif %}
+
+  <div class="pd-section">
+    <h3>Description</h3>
+    <p>{{ project.description }}</p>
+    <a class="pd-action-btn" href="/projects/{{ project.id }}/plan">
+      Get a step-by-step plan
+    </a>
+  </div>
+
+  {% if project.notes %}
+    <div class="pd-section">
+      <h3>Notes &amp; AI coach history</h3>
+      <div class="pd-notes">{{ project.notes }}</div>
+    </div>
+  {% endif %}
+
+  <div class="pd-section">
+    <h3>Ask the AI project coach</h3>
+    <p class="pd-note">
+      Grounded in this project's description and notes - explains
+      concepts, helps with commands/configuration, and troubleshoots
+      errors. It never claims you've completed something you haven't
+      told it about.
+    </p>
+    <form class="pd-form" method="POST" action="/projects/{{ project.id }}/ask">
+      <textarea name="question" placeholder="e.g. How do I set up RBAC for this?" required></textarea>
+      <br>
+      <button type="submit">Ask</button>
+    </form>
+  </div>
+
+  <div class="pd-section">
+    <h3>Get feedback on your work</h3>
+    <p class="pd-note">
+      Paste real code, configuration, or notes and get honest feedback -
+      it reviews only what you actually submit, and never assumes more
+      was done than what's shown.
+    </p>
+    <form class="pd-form" method="POST" action="/projects/{{ project.id }}/review">
+      <textarea name="submission" placeholder="Paste your code, config, or notes here..." required></textarea>
+      <br>
+      <button type="submit">Get feedback</button>
+    </form>
+  </div>
+
+  <div class="pd-section">
+    <h3>CV bullet</h3>
+    {% if project.status == 'Verified' %}
+      {% if project.cv_bullet %}
+        <div class="pd-bullet">{{ project.cv_bullet }}</div>
+        <p class="pd-note" style="margin-top:8px;">
+          Review before using - copy it into your profile/CV yourself if
+          it's accurate. Nothing here writes to profiles/profile.json
+          automatically.
+        </p>
+      {% else %}
+        <p class="pd-note">No CV bullet drafted yet.</p>
+      {% endif %}
+      <a class="pd-action-btn" href="/projects/{{ project.id }}/cv-bullet">
+        {{ 'Regenerate CV bullet' if project.cv_bullet else 'Draft a CV bullet' }}
+      </a>
+    {% else %}
+      <p class="pd-note">
+        Only available once this project's status is "Verified" - mark
+        it Verified once the real evidence (repo, README, findings)
+        actually exists.
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

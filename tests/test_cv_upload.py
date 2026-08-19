@@ -23,6 +23,22 @@ def test_upload_cv_rejects_unsupported_file_extension():
     assert b"Only PDF and DOCX files are supported." in response.data
 
 
+def test_settings_page_hides_internal_implementation_details():
+    """
+    Regression test for the mission's UI-copy requirement: no file
+    paths, module names, or "review-only preview" implementation
+    jargon in user-facing copy - plain language only.
+    """
+
+    client = _client()
+    response = client.get("/settings")
+    body = response.get_data(as_text=True)
+
+    assert "profiles/profile.json" not in body
+    assert "profile.json" not in body
+    assert "review-only preview" not in body
+
+
 def test_upload_cv_requires_a_file():
     client = _client()
 

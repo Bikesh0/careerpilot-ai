@@ -24,7 +24,85 @@ tested, and live-verified. Full status, including explicit
 IMPLEMENTED/PARTIAL/PLANNED/BLOCKED/REQUIRES-HUMAN-DECISION labels for
 every step, is in `docs/PRODUCT_VISION.md` - read that first.
 
-## Most recent: career-advisor pivot (final V2 release work order)
+## Most recent: employment mission - AI-coached projects, real recommendation paths, UI cleanup
+
+Asked to make the product genuinely usable end-to-end for its actual
+first user (not just feature-complete), and to investigate a
+specifically reported bug: a job that appeared as "Interview"-stage
+without ever having been applied to.
+
+**Bug investigated, root cause found**: traced `update_status()`'s only
+caller (`/status/<id>/<status>`, always an explicit user click) and
+confirmed directly that no code path anywhere changes a status
+automatically - not a defect in the shipped application. The actual
+cause was this session's own live-verification testing writing to the
+real `data/careerpilot.db` instead of an isolated copy (unlike the
+automated test suite, which always isolates via `tmp_path`). Found the
+exact polluted rows, asked the user how to handle their real data rather
+than deciding unilaterally, and cleared them once confirmed. **New rule
+going forward, now documented**: any manual verification that touches
+persistence must use an isolated working directory - see
+`docs/PRODUCT_VISION.md`'s "Investigated" section. (This rule was
+violated once more by accident immediately after being established,
+during a `/cv-strength` smoke check - caught and corrected the same way,
+second time with no repeat since.)
+
+**AI-coached practical projects** (`app/database/project_tracker.py`,
+`app/services/project_service.py`, `app/ai/project_coach.py`,
+`/projects`, `/projects/<id>`) - the mechanism that turns a
+recommendation into real evidence rather than just advice:
+
+- Start a project from any Layer 2 skill-gap recommendation
+  (`/projects/start/<job_id>/<skill_key>`) or Layer 1 CV-strength
+  weakness (`/projects/start-general/<skill_key>`, job-independent).
+- Status only changes by an explicit click - `Planned -> In Progress ->
+  Completed -> Verified` - verified directly with a test that re-reads
+  a project repeatedly to confirm nothing flips it automatically.
+- The AI coach: `plan()` (a day-by-day starting plan with checkpoints),
+  `ask()` (open technical Q&A), `review()` (honest feedback on real
+  pasted code/config/notes - reviews only what's submitted). All
+  grounded in the project's own recorded text.
+- `draft_cv_bullet()` is gated to `Verified` status at the *route*
+  level (not just the prompt), grounded only in the project's own text,
+  always review-only.
+- A `Verified` project strengthens that skill's evidence on the
+  CV-strength page (`verified_skill_keys` parameter,
+  `app/ai/cv_strength.py`) - even for a skill not yet in the profile's
+  declared skills list at all.
+
+**Layer 1 now gives a complete practical path**: a weakly-evidenced
+skill matching the curated catalog shows what to build, how, a time
+estimate, and a "Start this project" button - reusing the exact same
+hand-curated data Layer 2 already had, instead of a bare "add an
+example" line with nowhere to go.
+
+**Layer 2 leads with strengths**: a "You already demonstrate" section
+now appears before any gap detail, and the page gained a direct
+Apply/View-posting link - found missing during live verification (the
+dashboard card had one, this deeper analysis page didn't).
+
+**UI copy cleanup**: removed internal implementation language from user
+-facing pages - "How this works: deterministic...", `profiles/profile.json`
+file-path references, "review-only preview" phrasing - from
+`skill_gap.html`, `cv_strength.html`, `settings.html`. Verified absent
+with dedicated tests, not just removed and assumed gone. Added
+`Withdrawn` as an application status (was missing from the funnel).
+
+Added 24 new regression tests. Full suite: **148 passed** (was 134).
+Live-verified end-to-end in an isolated scratch directory (confirmed
+the real database stayed untouched this time): CV strength -> start
+project -> save job -> mark Interview -> Interview Prep button appears
+on the dashboard -> route unlocks -> applications page shows the funnel
+stat. Interview-prep generation itself hit a real Ollama timeout during
+this live check (503, graceful) - expected, documented behavior, not a
+bug (the same path is verified with a mocked LLM in the automated
+suite).
+
+Updated `docs/PRODUCT_VISION.md`, `docs/AI.md`, `docs/TESTING.md`,
+`docs/PORTFOLIO.md`, `README.md`, `PROJECT_STATE.md`, `NEXT_TASKS.md`
+(Priority 7 closed for the main case), and this file.
+
+## Prior session: career-advisor pivot (final V2 release work order)
 
 Asked to verify and complete the product's full career-advisor vision:
 CV strength scoring, skill proficiency levels, honest match-score
@@ -129,6 +207,10 @@ testers via a tunnel" section), `PROJECT_STATE.md`, `NEXT_TASKS.md`
 
 ## Prior sessions (compressed - see git history/CHANGELOG.md for full detail)
 
+- **Career-advisor pivot** (prior session) - Layer 1 CV strength, ready-
+  to-apply/one-next-action on Layer 2, honest match-score projection,
+  the expanded application funnel with adaptive insight, gated interview
+  preparation, CV-upload hardening.
 - **Career-recommendation engine** (skill-gap analysis,
   certification/course/project recommendations, CV-evidence checks) -
   `app/ai/skill_gap.py`, `/analyze/<job_id>`. Verified the same legacy
@@ -154,7 +236,7 @@ testers via a tunnel" section), `PROJECT_STATE.md`, `NEXT_TASKS.md`
 
 ## Verification
 
-Test result: **110 passed**, run via:
+Test result: **148 passed**, run via:
 ```powershell
 $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
@@ -162,18 +244,17 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 
 Repo-wide `python -m compileall app tests *.py`: clean.
 
-Live-verified through the real Flask dashboard with
-`CAREERPILOT_SEARCH_V2=1` against real, live Jobly results across this
-and prior sessions - most recently, a single continuous pass covering:
-`/cv-strength` with the real profile; a real live dashboard search;
-`/analyze/<id>` against a real posting; save -> `/status/.../Interview`
--> the dashboard's "Interview Prep" button appearing -> `/interview/<id>`
-unlocking. (If this exact pass hasn't been re-run since this file was
-last touched, the automated test suite's route-level tests
-(`tests/test_interview_prep.py` etc.) cover the identical logic with a
-mocked LLM call, so the gating/flow behavior itself is verified either
-way - only the "does a real live job render sensibly" check needs a live
-run to re-confirm.)
+Live-verified in an isolated scratch working directory (not the real
+`data/careerpilot.db` - see "Most recent" above for why that matters):
+`/cv-strength` with the real profile; a mocked-but-realistic dashboard
+search; `/analyze/<id>` with an Apply link and "You already demonstrate"
+section; starting a project from a skill-gap recommendation; save ->
+`/status/.../Interview` -> the dashboard's "Interview Prep" button
+appearing -> the route unlocking; `/applications` showing the funnel
+stat; marking a project `Verified`. Real Ollama was reached for the
+project's CV-bullet draft (succeeded) and for interview-prep generation
+(timed out, correctly returned `503`) - both are pre-existing,
+documented behaviors (graceful degradation), not new findings.
 
 ## Documentation
 
@@ -209,26 +290,32 @@ Complete and reviewed for staleness across this session:
 - CV tailoring is a full grounded LLM rewrite per job, not the lighter
   deterministic "reorder a stable master CV" approach the product spec
   describes (`NEXT_TASKS.md` Priority 6).
-- Skill proficiency (Layer 1) is computed fresh from the profile each
-  time - no persistent store, no "mark this project complete to advance
-  a skill" workflow (`NEXT_TASKS.md` Priority 7).
+- **Mostly closed**: skill proficiency now advances via `Verified`
+  projects (`NEXT_TASKS.md` Priority 7) - what's still open is narrower:
+  no partial credit for `In Progress` work, all-or-nothing at
+  `Verified`.
+- The AI project coach's `plan()`/`ask()`/`review()` are single-shot,
+  not a multi-turn conversation - each call is independently grounded in
+  the project's title/description/notes, with no memory of the
+  conversation itself beyond what's already saved to notes.
 
 ## Exact next task
 
 Verify `git status`/`git log` directly rather than trusting a written
 claim about push state - this file describes what was built and tested,
 not a live git query. If this batch isn't committed/pushed yet: stage,
-commit with a message describing the career-advisor batch, `git push
+commit with a message describing the employment-mission batch, `git push
 origin v2-development`, then confirm `git status` is clean and local
 HEAD matches `origin/v2-development`, following the same ritual used for
 every prior batch this session.
 
 After that, remaining work is entirely in `NEXT_TASKS.md`, in priority
 order. Priorities 1-4 need a human decision/outreach or are low-urgency
-maintenance; Priorities 5-7 (multi-visitor isolation, deterministic CV
-tailoring, persistent skill-proficiency tracking) are larger, explicitly
--scoped features that need a real planning pass before implementation,
-not a quick follow-up.
+maintenance; Priority 5 (multi-visitor isolation) and Priority 6
+(deterministic CV tailoring) are larger, explicitly-scoped features that
+need a real planning pass before implementation, not a quick follow-up;
+Priority 7 (skill-proficiency progression) is now mostly closed, with
+only minor open edges left.
 
 ## Handoff protocol
 

@@ -57,14 +57,27 @@ Implemented and verified in this repository:
   signal and one calm "next best action" instead of a checklist, and an
   honest match-score-improvement estimate computed with the real scoring
   model - never a guarantee
-- A Flask dashboard showing ranked jobs, matched skills, job metadata,
-  and an adaptive one-line insight about the user's own application
-  funnel (e.g. "reaching interviews - focus on interview prep next")
-- Save-job / application tracking with an expanded status set (Saved,
-  Applied, Interview, Second Round, Final Round, Offer, Rejected, No
-  Response), backed by SQLite, with duplicate-record prevention (by job
-  URL, or company+title as a fallback) - interview-stage progress is
-  counted as real progress even without an offer yet
+- **AI-coached practical projects** (`/projects`): turn a skill-gap
+  recommendation into a tracked project (Planned/In Progress/Completed/
+  Verified, status only ever changed by an explicit click), with an
+  Ollama-backed coach for open-ended technical help and, once Verified,
+  a CV bullet drafted strictly from the project's own recorded
+  description - review-only, never auto-merged into the profile. A
+  Verified project strengthens that skill's evidence on the CV-strength
+  page too
+- A Flask dashboard showing ranked jobs, a clearly-labeled "Profile
+  Match" score (explicitly not a hiring probability - see
+  [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)), matched skills, job
+  metadata, and an adaptive one-line insight about the user's own
+  application funnel (e.g. "reaching interviews - focus on interview
+  prep next")
+- Save-job / application tracking with a full interview-funnel status
+  set (Saved, Applied, Interview, Second Round, Final Round, Offer,
+  Rejected, No Response, Withdrawn), backed by SQLite, with
+  duplicate-record prevention (by job URL, or company+title as a
+  fallback) - interview-stage progress is counted as real progress even
+  without an offer yet, and a status only ever changes via an explicit
+  user action
 - **Gated interview preparation** (`/interview/<job_id>`): AI-generated,
   job-specific technical/scenario/CV/project questions, only unlocked
   once that job's saved application has actually reached "Interview"
@@ -234,7 +247,7 @@ return a clear "unavailable" response instead of failing silently.
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-110 tests, all fixture- or mock-backed. The suite performs no live job
+148 tests, all fixture- or mock-backed. The suite performs no live job
 searches and never calls Ollama. Details, including what each test file
 covers, are in [docs/TESTING.md](docs/TESTING.md).
 
@@ -293,11 +306,13 @@ automatically writes to `profiles/profile.json`.
 
 - **Implemented**: V2 search/matching/ranking pipeline, Flask dashboard,
   save-job/application tracking with a full interview-stage funnel
-  (duplicate-safe), Layer 1 CV-strength analysis, Layer 2 job-specific
-  skill-gap analysis with honest match-score projection and a single
-  "next best action", gated interview preparation, AI resume and
-  cover-letter generation, CV upload with AI-assisted extraction for
-  review (rate-limited, auto-cleaned), automated test suite (110 tests).
+  (duplicate-safe), Layer 1 CV-strength analysis with concrete practical
+  paths for weak evidence, Layer 2 job-specific skill-gap analysis with
+  honest match-score projection and a single "next best action",
+  AI-coached practical projects with real evidence tracking, gated
+  interview preparation, AI resume and cover-letter generation, CV
+  upload with AI-assisted extraction for review (rate-limited,
+  auto-cleaned), automated test suite (148 tests).
 - **Partial by design**: CV tailoring uses a grounded LLM rewrite per
   job rather than a deterministic reorder of a stable master CV; skill
   proficiency (Basic/Intermediate/Advanced) is computed fresh from

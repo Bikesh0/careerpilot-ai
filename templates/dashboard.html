@@ -441,6 +441,21 @@
   </div>
 
 
+  {% if jobs %}
+    <div class="cp-empty" style="text-align:left;padding:12px 20px;margin-bottom:16px;border-style:dashed;">
+      <p style="margin:0;color:var(--muted);font-size:.82rem;">
+        <strong style="color:var(--brass);">What "Profile Match" means:</strong>
+        title, skill overlap, location, and seniority fit, weighted into
+        one score - it is <strong>not</strong> a probability of getting
+        hired or even an interview. A low score often just means the
+        job title or location didn't match, even if your skills fit
+        well - open a job's "Skill Gap" analysis for the fuller picture
+        (which requirements you actually cover, what's missing, and
+        whether you're ready to apply).
+      </p>
+    </div>
+  {% endif %}
+
   {% if stats.insight %}
     <div class="cp-empty" style="text-align:left;padding:16px 20px;margin-bottom:24px;border-style:solid;">
       <p style="margin:0;color:var(--text);">{{ stats.insight }}</p>
@@ -792,7 +807,7 @@
           </div>
 
           <p class="cp-gauge-label">
-            Match
+            Profile Match
           </p>
 
         </div>

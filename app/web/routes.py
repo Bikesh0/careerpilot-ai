@@ -14,14 +14,17 @@ from app.search.v2.factory import (
 from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
 from app.ai.profile_extractor import ProfileExtractor
-from app.ai.skill_gap import analyze_skill_gap
+from app.ai.skill_gap import analyze_skill_gap, SKILL_CATALOG
 from app.ai.cv_strength import analyze_cv_strength
 from app.ai.interview_prep import InterviewPrepBuilder
+from app.ai.project_coach import ProjectCoach
 from app.parsers.cv_parser import CVParser
 from app.services.application_service import (
     ApplicationService,
     INTERVIEW_STAGE_STATUSES,
 )
+from app.services.project_service import ProjectService
+from app.database.project_tracker import PROJECT_STATUSES
 from app.services.ai_document_service import AIDocumentService
 
 
@@ -43,6 +46,7 @@ document_ai = AIDocumentService()
 profile_extractor = ProfileExtractor()
 cv_parser = CVParser()
 interview_prep_builder = InterviewPrepBuilder()
+project_coach = ProjectCoach()
 
 
 # =========================================================
@@ -350,7 +354,9 @@ def cv_strength():
 
     profile = _load_profile()
 
-    analysis = analyze_cv_strength(profile)
+    verified_skill_keys = ProjectService().verified_skill_keys()
+
+    analysis = analyze_cv_strength(profile, verified_skill_keys)
 
     return render_template(
         "cv_strength.html",
@@ -780,6 +786,311 @@ def analyze(job_id):
         job=job,
         analysis=analysis,
     )
+
+
+# =========================================================
+# PROJECTS - the AI-coached "close the gap" action
+#
+# Turns a skill-gap recommendation into a real, tracked project:
+# Planned -> In Progress -> Completed -> Verified. Status only ever
+# changes via an explicit user action (never automatically - see
+# docs/PRODUCT_VISION.md). A CV bullet can only be drafted once a
+# project is Verified, and is always review-only - nothing here writes
+# to profiles/profile.json.
+# =========================================================
+
+def _start_project_from_catalog(skill_key, source_job_url=""):
+    """
+    Shared by both "start a project" entry points - a job-specific gap
+    (Layer 2, /analyze/<job_id>) and a general CV-strength weakness
+    (Layer 1, /cv-strength), which has no job context at all. Returns
+    the new project's id, or None if skill_key isn't a real catalog key.
+    """
+
+    entry = SKILL_CATALOG.get(skill_key)
+
+    if entry is None:
+        return None
+
+    catalog_projects = entry.get("projects") or []
+
+    if catalog_projects:
+        title = catalog_projects[0]["title"]
+        description = catalog_projects[0]["description"]
+    else:
+        title = f"{entry['display']} practical project"
+        description = (
+            f"Build hands-on, demonstrable evidence of {entry['display']}."
+        )
+
+    service = ProjectService()
+
+    return service.start_project(
+        skill_key=skill_key,
+        skill_display=entry["display"],
+        title=title,
+        description=description,
+        source_job_url=source_job_url,
+    )
+
+
+@web.route("/projects/start/<int:job_id>/<skill_key>")
+def start_project(job_id, skill_key):
+
+    job = manager.get_job(job_id)
+
+    source_job_url = getattr(job, "url", "") if job is not None else ""
+
+    project_id = _start_project_from_catalog(skill_key, source_job_url)
+
+    if project_id is None:
+
+        return "Unknown skill.", 404
+
+    return redirect(f"/projects/{project_id}")
+
+
+@web.route("/projects/start-general/<skill_key>")
+def start_project_general(skill_key):
+    """
+    Same as start_project(), but for a project started from the
+    job-independent Layer 1 CV-strength page - no job to attribute it
+    to.
+    """
+
+    project_id = _start_project_from_catalog(skill_key)
+
+    if project_id is None:
+
+        return "Unknown skill.", 404
+
+    return redirect(f"/projects/{project_id}")
+
+
+@web.route("/projects")
+def projects():
+
+    service = ProjectService()
+
+    return render_template(
+        "projects.html",
+        projects=service.get_all(),
+        stats=service.statistics(),
+    )
+
+
+@web.route("/projects/<int:project_id>")
+def project_detail(project_id):
+
+    service = ProjectService()
+
+    project = service.get(project_id)
+
+    if project is None:
+
+        return "Project not found.", 404
+
+    return render_template(
+        "project_detail.html",
+        project=project,
+        statuses=PROJECT_STATUSES,
+        coach_error=None,
+    )
+
+
+@web.route("/projects/<int:project_id>/status/<status>")
+def update_project_status(project_id, status):
+
+    service = ProjectService()
+
+    if service.get(project_id) is None:
+
+        return "Project not found.", 404
+
+    try:
+
+        service.update_status(project_id, status)
+
+    except ValueError as error:
+
+        return str(error), 400
+
+    return redirect(f"/projects/{project_id}")
+
+
+@web.route("/projects/<int:project_id>/ask", methods=["POST"])
+def ask_project_coach(project_id):
+
+    service = ProjectService()
+
+    project = service.get(project_id)
+
+    if project is None:
+
+        return "Project not found.", 404
+
+    question = (request.form.get("question") or "").strip()
+
+    if not question:
+
+        return redirect(f"/projects/{project_id}")
+
+    try:
+
+        answer = project_coach.ask(project, question)
+
+        service.append_note(
+            project_id,
+            f"Q: {question}\nA (AI coach): {answer}",
+        )
+
+    except Exception as error:
+
+        print(
+            f"Project coach failed: {error}"
+        )
+
+        return render_template(
+            "project_detail.html",
+            project=project,
+            statuses=PROJECT_STATUSES,
+            coach_error=(
+                "AI project coaching is unavailable right now (the "
+                "local Ollama model did not respond). Please try again "
+                "once Ollama is running."
+            ),
+        )
+
+    return redirect(f"/projects/{project_id}")
+
+
+@web.route("/projects/<int:project_id>/plan")
+def get_project_plan(project_id):
+
+    service = ProjectService()
+
+    project = service.get(project_id)
+
+    if project is None:
+
+        return "Project not found.", 404
+
+    try:
+
+        plan = project_coach.plan(project)
+
+        service.append_note(
+            project_id,
+            f"Step-by-step plan:\n{plan}",
+        )
+
+    except Exception as error:
+
+        print(
+            f"Project coach plan generation failed: {error}"
+        )
+
+        return render_template(
+            "project_detail.html",
+            project=project,
+            statuses=PROJECT_STATUSES,
+            coach_error=(
+                "AI project coaching is unavailable right now (the "
+                "local Ollama model did not respond). Please try again "
+                "once Ollama is running."
+            ),
+        )
+
+    return redirect(f"/projects/{project_id}")
+
+
+@web.route("/projects/<int:project_id>/review", methods=["POST"])
+def review_project_work(project_id):
+
+    service = ProjectService()
+
+    project = service.get(project_id)
+
+    if project is None:
+
+        return "Project not found.", 404
+
+    submission = (request.form.get("submission") or "").strip()
+
+    if not submission:
+
+        return redirect(f"/projects/{project_id}")
+
+    try:
+
+        feedback = project_coach.review(project, submission)
+
+        service.append_note(
+            project_id,
+            f"Submitted for review:\n{submission}\n\n"
+            f"AI coach feedback:\n{feedback}",
+        )
+
+    except Exception as error:
+
+        print(
+            f"Project coach review failed: {error}"
+        )
+
+        return render_template(
+            "project_detail.html",
+            project=project,
+            statuses=PROJECT_STATUSES,
+            coach_error=(
+                "AI project coaching is unavailable right now (the "
+                "local Ollama model did not respond). Please try again "
+                "once Ollama is running."
+            ),
+        )
+
+    return redirect(f"/projects/{project_id}")
+
+
+@web.route("/projects/<int:project_id>/cv-bullet")
+def draft_project_cv_bullet(project_id):
+
+    service = ProjectService()
+
+    project = service.get(project_id)
+
+    if project is None:
+
+        return "Project not found.", 404
+
+    if project["status"] != "Verified":
+
+        return (
+            "A CV bullet can only be drafted for a Verified project - "
+            "mark this project Verified once the real evidence "
+            "(repo, README, findings) actually exists.",
+            400,
+        )
+
+    try:
+
+        bullet = project_coach.draft_cv_bullet(project)
+
+        service.set_cv_bullet(project_id, bullet)
+
+    except Exception as error:
+
+        print(
+            f"CV-bullet drafting failed: {error}"
+        )
+
+        return (
+            "AI CV-bullet drafting is unavailable right now (the local "
+            "Ollama model did not respond). Please try again once "
+            "Ollama is running.",
+            503,
+        )
+
+    return redirect(f"/projects/{project_id}")
 
 
 # =========================================================

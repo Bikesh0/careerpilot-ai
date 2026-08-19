@@ -164,20 +164,29 @@ structural decisions - not a full replacement of the current approach
 without first proving the deterministic version doesn't regress
 resume quality.
 
-## Priority 7 - Persistent, progressive skill-proficiency tracking
+## Priority 7 - Persistent, progressive skill-proficiency tracking (DONE for Verified projects; partial credit still open)
 
-`app/ai/cv_strength.py`'s Basic/Intermediate/Advanced levels are
-computed fresh from the current profile every time - there's no
-persistent store, and no "mark this project/course/lab complete to
-advance a skill" workflow. Building that needs: a small persistent store
-(a new SQLite table, most likely, mirroring `applications`) keyed by
-skill, a UI action to mark a skill-gap recommendation as completed, and
-a decision about how "profile skills" (declarative) and this store
-(evidence-based) relate to each other so they don't silently diverge.
-Not attempted this session - the automatic, evidence-based computation
-already avoids the specific flaw called out in the product spec
-("treating skills as simple present/absent"), so this is a genuine
-enhancement, not a currently-broken promise.
+**Closed this session, for the main case**: `app/database/project_tracker.py`
++ `app/services/project_service.py` give exactly the "mark this project
+complete to advance a skill" workflow this priority asked for - starting
+a project from a skill-gap recommendation, tracking it through
+`Planned -> In Progress -> Completed -> Verified`, and a `Verified`
+project now upgrades that skill to `Advanced` on the CV-strength page
+(`app/ai/cv_strength.py`'s `verified_skill_keys` parameter), even for a
+skill not yet in the profile's declared list at all.
+
+Still open, genuinely lower priority now that the main gap is closed:
+
+- [ ] No partial credit for `In Progress` work - proficiency only moves
+      once a project reaches `Verified`, all-or-nothing. A "started but
+      not finished" state contributing something intermediate wasn't
+      attempted - not clearly valuable enough to justify the added
+      complexity yet.
+- [ ] No fading-back-down: if a `Verified` project were later deleted or
+      its status reverted, proficiency is recomputed fresh on the next
+      page load anyway (not cached), so this is more a documentation
+      note than an actual gap - worth confirming with a test if this
+      area is revisited.
 
 ## Explicitly not planned right now
 

@@ -141,9 +141,48 @@ see `docs/PRODUCT_VISION.md` for the full flow and honest status labels
   - both documented with reasons in `docs/PRODUCT_VISION.md`, not
   silently skipped.
 
+## Employment-mission features (latest session)
+
+Continuing the same career-advisor direction, focused on making the
+product genuinely usable end-to-end, not just feature-complete:
+
+- **AI-coached practical projects** (`/projects`, `/projects/<id>`,
+  `app/database/project_tracker.py`, `app/ai/project_coach.py`): start a
+  tracked project from any skill-gap recommendation (Layer 2) or CV
+  -strength weakness (Layer 1, job-independent route). Status only ever
+  changes by an explicit click (`Planned -> In Progress -> Completed ->
+  Verified`, verified directly, not assumed). An AI coach gives a
+  step-by-step starting plan, answers open questions, and reviews real
+  pasted work - grounded, never claiming completed work that wasn't
+  submitted. A Verified project both drafts a CV bullet (gated at the
+  route level, grounded only in the project's own text) and strengthens
+  that skill's evidence on the CV-strength page.
+- **Layer 1 now gives a complete practical path**, not just a label: a
+  weakly-evidenced skill matching the curated catalog shows what to
+  build, how, a time estimate, and a "Start this project" button - the
+  same real data Layer 2 already used for job-specific gaps.
+- **Layer 2 leads with strengths**: a "You already demonstrate" section
+  now appears before any gap detail, and the page has a direct Apply
+  link (found missing during live verification - the dashboard card had
+  one, this deeper page didn't).
+- **UI copy cleanup**: internal implementation language ("How this
+  works: deterministic...", `profiles/profile.json` paths, "review-only
+  preview") removed from `skill_gap.html`, `cv_strength.html`,
+  `settings.html` - that belongs in `docs/`, not the product itself.
+- **Investigated a real bug report** ("a job I never applied to showed
+  as Interview") - root-caused to this session's own live-verification
+  scripts writing to the real database instead of an isolated copy, not
+  an application defect (the status-change code path was directly
+  traced and verified correct). The polluted rows were cleared with the
+  user's explicit confirmation first. See `docs/PRODUCT_VISION.md`'s
+  "Investigated" section for the full writeup and the process rule this
+  established going forward.
+- Added `Withdrawn` as an application status (was missing from the
+  funnel).
+
 ## Tests
 
-Current test result: **110 passed**
+Current test result: **148 passed**
 
 Run with:
 ```powershell
@@ -151,8 +190,8 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 86 of the
-110 tests were added across this and the prior two sessions, each a
+Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). Most of
+these tests were added across this and the prior three sessions, each a
 direct regression test for a specific bug found and fixed, or a specific
 behavior verified: profile corruption, the ranking module collision, the
 Duunitori title bug, the SSRF-adjacent domain guard, the broken dashboard
@@ -165,10 +204,14 @@ titles, exclusion list, experience penalty), the skill-gap recommendation
 engine (required-vs-nice-to-have classification, genuine skill-gap
 detection distinct from the matchers' inverse `missing_skills`,
 CV-evidence notes, a sentence-final-punctuation bug that silently hid
-skill mentions), and this session's career-advisor features (ready-to-
-apply/next-action logic, honest match-score projection, a CV-strength
-level/evidence contradiction bug found and fixed, the application
-funnel, gated interview preparation, and CV-upload hardening).
+skill mentions), the career-advisor features (ready-to-apply/next-action
+logic, honest match-score projection, a CV-strength level/evidence
+contradiction bug found and fixed, the application funnel, gated
+interview preparation, and CV-upload hardening), and this session's
+employment-mission features (AI-coached practical projects, the
+job-independent Layer 1 recommendation path, the "You already
+demonstrate" section and Apply link on Layer 2, and the UI-copy
+cleanup).
 
 ## Flask
 
