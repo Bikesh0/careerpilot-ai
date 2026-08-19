@@ -6,10 +6,8 @@
 
 ## Current branch
 
-`v2-development`, pushed to `origin`
-(`https://github.com/Bikesh0/careerpilot-ai.git`) as of the prior
-session's final commit; this session's skill-gap work is committed
-locally and described below (see "Exact next task" for push status).
+`v2-development`, fully pushed to `origin`
+(`https://github.com/Bikesh0/careerpilot-ai.git`). Working tree clean.
 
 ## Current state
 
@@ -228,20 +226,11 @@ Complete and reviewed for staleness across this session:
 ## Exact next task
 
 All items explicitly requested across this and the prior session are
-done. This session's work (`app/ai/skill_gap.py`, the `/analyze/<id>`
-route, `templates/skill_gap.html`, the dashboard's new "Skill Gap"
-button, 12 new tests, and the documentation updates listed above) is
-complete and verified but had not yet been committed/pushed as of this
-handoff update - do that next if it hasn't happened yet: stage, commit
-with a message describing the feature, `git push origin v2-development`,
-then verify `git status` is clean and local/remote HEAD match, following
-the same ritual used for every prior batch this session.
-
-After that, remaining work is entirely in `NEXT_TASKS.md`, in priority
-order, and every remaining priority needs either a human decision/
-outreach (Duunitori/Tyomarkkinatori permission, the CV-merge UX) or is
-explicitly low-urgency (skill-gap catalog maintenance, source
-diagnostics).
+done and pushed (commit `2b4d81c`). Remaining work is entirely in
+`NEXT_TASKS.md`, in priority order, and every remaining priority needs
+either a human decision/outreach (Duunitori/Tyomarkkinatori permission,
+the CV-merge UX) or is explicitly low-urgency (skill-gap catalog
+maintenance, source diagnostics).
 
 ## Handoff protocol
 
