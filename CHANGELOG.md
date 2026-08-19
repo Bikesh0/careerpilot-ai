@@ -1,5 +1,77 @@
 # CareerPilot AI - Changelog
 
+## 2026-08-19 - Add career-recommendation engine: skill-gap analysis, certifications, courses, projects, CV evidence checks
+
+Verified the original product plan's career-development recommendation
+functionality against the actual codebase before building anything.
+Traced every candidate module (`app/ai/analyzer.py`, `decision.py`,
+`suitability.py`, `skill_map.py`, `scoring.py`, `target_scorer.py`) and
+confirmed none of it is reachable from the Flask dashboard - it's V1-CLI
+-only code (`main.py`, a standalone script), `SuitabilityEngine` is a
+stub that always returns zeros, and none of it does certification/
+course/project recommendation at all. Left that legacy code untouched
+(out of scope) and built the real feature as a new module.
+
+**`app/ai/skill_gap.py`** + **`/analyze/<job_id>`** (a new "Skill Gap"
+button on every dashboard job card):
+
+- **Genuine skill-gap detection**, not the matchers' inverse
+  `missing_skills`. Both matchers' `missing_skills` means "profile
+  skills this job's text doesn't happen to repeat" - a posting asking
+  for a skill entirely absent from the profile (e.g. Terraform) was
+  invisible to both matchers. This feature scans job text against a
+  curated ~30-skill taxonomy and checks the *candidate's* skills,
+  experience, certifications, and summary text for real evidence of
+  each one - a genuine gap now surfaces with a real recommendation.
+- **Required vs. nice-to-have**, classified per sentence via a
+  hedging-language heuristic ("nice to have", "preferred", "a plus",
+  "bonus", ...) rather than assuming clean section headers exist in
+  scraped job text.
+- **Certification/course/project recommendations** from a small,
+  hand-curated catalog of real, well-known, currently-existing
+  resources - no LLM call, by deliberate design (see docs/AI.md): a
+  hallucinated certification recommendation is a worse failure than a
+  hallucinated cover-letter sentence, so every recommendation is
+  verifiable by construction instead. Certifications are never invented
+  for skills that don't have a real standalone one (Git, VPN correctly
+  have an empty certifications list).
+- **Prioritization by relevance and effort**: missing required skills
+  first, then nice-to-have, each ordered by a rough (min, max) effort
+  estimate, quickest first.
+- **CV/profile evidence check**: a skill claimed in the profile's bare
+  skills list but never demonstrated in an experience entry (or vice
+  versa) is flagged with a suggestion to add a concrete example - never
+  an invented one.
+
+Found and fixed one real bug while building this: `app/ai/skill_gap.py`'s
+word-boundary tokenizer initially kept periods in the normalized
+character set (mirroring `app/search/v2/matching/signals.py`'s
+`normalize_skill`), which is harmless there but silently broke matching
+here - a requirement sentence almost always ends with the skill name
+immediately followed by a period ("...experience with Terraform."), and
+the glued-on period meant the token never equaled the bare alias. Fixed
+by excluding periods from this module's normalizer (a different,
+deliberately independent implementation from V2's, not a shared one -
+see docs/MATCHING_AND_RANKING.md).
+
+Added 12 regression tests (`tests/test_skill_gap.py`,
+`tests/test_skill_gap_route.py`) covering required-vs-nice-to-have
+classification, genuine-gap detection, CV-evidence notes (both raised and
+correctly absent), the no-fabricated-certifications guarantee,
+effort-based prioritization ordering, the "no requirements detected"
+flag, the punctuation regression, and the full dashboard-to-analysis
+route end to end. Live-verified through the real Flask dashboard with
+`CAREERPILOT_SEARCH_V2=1` against a real, live Jobly search (14 jobs) -
+`/analyze/<id>` rendered correctly for a real posting ("OT Cybersecurity
+Engineer"), showing the full requirement -> skill -> gap -> recommended-
+action flow.
+
+Updated `docs/PRODUCT_VISION.md`, `docs/MATCHING_AND_RANKING.md`,
+`docs/AI.md`, `docs/PORTFOLIO.md`, `docs/TESTING.md`, `NEXT_TASKS.md`,
+`PROJECT_STATE.md`, and `HANDOFF.md`.
+
+Full suite: 75 passed (was 63).
+
 ## 2026-08-18 - Port V1's Finnish titles, exclusion list, and experience penalty into V2
 
 Continuing down `NEXT_TASKS.md` (formerly Priority 1, now closed):

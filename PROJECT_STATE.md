@@ -111,7 +111,7 @@ titles/locations with no visible error. Fixed; regression test added
 
 ## Tests
 
-Current test result: **63 passed**
+Current test result: **75 passed**
 
 Run with:
 ```powershell
@@ -119,16 +119,21 @@ $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 39 of the 63
-tests were added this session, each a direct regression test for a
-specific bug found and fixed: profile corruption, the ranking module
-collision, the Duunitori title bug, the SSRF-adjacent domain guard, the
-broken dashboard job-action links, a saved-jobs duplicate-record bug
-(user-reported), four broken sidebar navigation links, the CV upload
-path, the V1/V2 ranking-unification (V2's own score silently discarded
-before reaching the dashboard), Duunitori/Jobly `robots.txt` compliance
-(Duunitori disabled, Jobly crawl-delay added), and the V1-to-V2 matching
-port (Finnish titles, exclusion list, experience penalty).
+Full breakdown by file: [docs/TESTING.md](docs/TESTING.md). 51 of the 75
+tests were added across this and the prior session, each a direct
+regression test for a specific bug found and fixed, or a specific
+behavior verified: profile corruption, the ranking module collision, the
+Duunitori title bug, the SSRF-adjacent domain guard, the broken dashboard
+job-action links, a saved-jobs duplicate-record bug (user-reported), four
+broken sidebar navigation links, the CV upload path, the V1/V2
+ranking-unification (V2's own score silently discarded before reaching
+the dashboard), Duunitori/Jobly `robots.txt` compliance (Duunitori
+disabled, Jobly crawl-delay added), the V1-to-V2 matching port (Finnish
+titles, exclusion list, experience penalty), and the new skill-gap
+recommendation engine (required-vs-nice-to-have classification, genuine
+skill-gap detection distinct from the matchers' inverse `missing_skills`,
+CV-evidence notes, a sentence-final-punctuation bug that silently hid
+skill mentions, and the full dashboard-to-analysis route).
 
 ## Flask
 
@@ -190,18 +195,33 @@ presentation when it succeeds, with Finnish-title recognition, an
 exclusion list, and an experience-requirement penalty ported from V1;
 V1 is the tested fallback), dashboard, saved jobs (duplicate-safe),
 sidebar navigation, CV upload with AI-assisted extraction, AI document
-generation, and `robots.txt` compliance across all sources are all
-implemented, tested, and verified working end-to-end. Thirteen real
-issues found through live investigation across this session (six in the
-initial audit, a user-reported saved-jobs bug, a self-discovered
-navigation bug, a JSON-extraction fragility found while wiring up CV
-upload, V2's own score being silently discarded before reaching the
-dashboard, two `robots.txt` compliance gaps - Duunitori disallowed
-entirely, Jobly's crawl-delay unhonored - and a stale, self-duplicated
-planning document found during the release audit) are fixed, ported, or,
-in Duunitori's case, resolved by disabling the source at the user's
-explicit direction. Documentation is complete and accurate as of this
-update.
+generation, `robots.txt` compliance across all sources, and a
+job-specific skill-gap/career-recommendation engine
+(`app/ai/skill_gap.py`, `/analyze/<job_id>`) are all implemented, tested,
+and verified working end-to-end. Fourteen real issues found through live
+investigation across this and the prior session (six in the initial
+audit, a user-reported saved-jobs bug, a self-discovered navigation bug,
+a JSON-extraction fragility found while wiring up CV upload, V2's own
+score being silently discarded before reaching the dashboard, two
+`robots.txt` compliance gaps - Duunitori disallowed entirely, Jobly's
+crawl-delay unhonored - a stale, self-duplicated planning document found
+during the release audit, and a sentence-final-punctuation bug found
+while building the skill-gap feature that silently hid skill mentions
+ending a sentence) are fixed, ported, built, or, in Duunitori's case,
+resolved by disabling the source at the user's explicit direction.
+Documentation is complete and accurate as of this update.
+
+The skill-gap engine was verified against the actual codebase before
+being built, not assumed: `app/ai/analyzer.py`, `decision.py`,
+`suitability.py`, `skill_map.py`, `scoring.py`, and `target_scorer.py`
+already existed in `app/ai/`, but are legacy V1-CLI-only code
+(`main.py`, a standalone script disconnected from the Flask app) - none
+of them are reachable from the dashboard, `suitability.py` is a stub
+that always returns zeros, and none of them do certification/course/
+project recommendation at all. They were left untouched (out of this
+session's scope) rather than silently repurposed or deleted; the new
+feature was built as its own module rather than resurrecting dead code
+that doesn't do what was asked.
 
 Remaining honestly-scoped work (see
 [NEXT_TASKS.md](NEXT_TASKS.md) and
@@ -210,6 +230,6 @@ disabled status (needs the site's explicit permission, or an
 official/approved API - no circumvention path is in scope) and
 Tyomarkkinatori's (same, for its own internal API, already built and
 verified but not shipped); building the review-to-profile merge step for
-CV data; fixing the resume/cover-letter output-directory mismatch; and a
-skill-gap feature (already correctly scoped - needs job-requirement
-extraction, not just exposing existing data).
+CV data; fixing the resume/cover-letter output-directory mismatch; and
+low-urgency skill-gap catalog maintenance (expanding taxonomy coverage,
+periodic manual review of the curated certification/course list).

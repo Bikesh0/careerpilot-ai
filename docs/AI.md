@@ -30,13 +30,42 @@ elsewhere in this codebase) by extracting the first `{...}` block rather
 than assuming a bare JSON response, and raises a clear error instead of
 an unhandled `TypeError` if the model doesn't respond at all.
 
-**Not used for**: matching, ranking, deduplication, filtering, or search.
-All of that is deterministic Python (`app/search/v2/matching`,
-`app/search/v2/ranking`, `app/ai/matcher.py`) - see
-`docs/MATCHING_AND_RANKING.md`. This is a deliberate design boundary, not
-an oversight: matching/ranking need to be explainable and reproducible
-("why did this job rank #3"), which an LLM call would make
-non-deterministic and opaque.
+**Not used for**: matching, ranking, deduplication, filtering, search, or
+skill-gap/recommendation analysis. All of that is deterministic Python
+(`app/search/v2/matching`, `app/search/v2/ranking`, `app/ai/matcher.py`,
+`app/ai/skill_gap.py`) - see `docs/MATCHING_AND_RANKING.md`. This is a
+deliberate design boundary, not an oversight: matching/ranking need to be
+explainable and reproducible ("why did this job rank #3"), which an LLM
+call would make non-deterministic and opaque.
+
+### Skill-gap recommendations make zero LLM calls, by design
+
+`/analyze/<job_id>` (the dashboard's "Skill Gap" button,
+`app/ai/skill_gap.py`) recommends certifications, courses, and practical
+projects for a candidate's skill gaps against a specific job. This is
+exactly the kind of feature where an LLM call is tempting (a "learning
+plan" reads naturally as generated text) and exactly the kind where
+hallucination is least acceptable - inventing a certification, or
+claiming one covers something it doesn't, would actively mislead someone
+about their own career planning.
+
+Instead, `app/ai/skill_gap.py` uses a small, hand-curated,
+non-AI-generated catalog (`SKILL_CATALOG`) of real, well-known, currently
+existing certifications/courses/providers, checked against the job
+posting and the candidate profile with the same kind of deterministic
+word-boundary text matching the matchers use. Every recommendation shown
+is "verified" by construction (a human picked it, not a model) - there is
+no separate AI-generated content mixed in that would need a "verified vs.
+AI-generated" label, because none is generated. If this is ever extended
+with LLM-written narrative text (e.g. a personalized summary paragraph),
+that content must be clearly and separately labeled as AI-generated, not
+folded into the curated catalog - this is flagged here so that boundary
+doesn't quietly erode later.
+
+This also means the feature has no Ollama dependency and no added
+latency/cost beyond a single Python function call - it works identically
+whether or not Ollama is installed or running, consistent with "The
+application works without Ollama" below.
 
 ### Hallucination prevention
 

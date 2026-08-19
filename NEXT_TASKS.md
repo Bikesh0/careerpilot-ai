@@ -1,6 +1,6 @@
 # CareerPilot AI - Next Tasks
 
-Status as of 2026-08-18, after a full audit-and-fix session. See
+Status as of 2026-08-19, after a full audit-and-fix session. See
 `HANDOFF.md` for the detailed session log and `PROJECT_STATE.md` for
 current state. Completed items from the prior version of this file are
 removed rather than left checked - see git history for what they were.
@@ -92,42 +92,33 @@ review - nothing writes to `profiles/profile.json` yet.
       `/resume`/`/coverletter` routes to show the most recently
       generated document instead of just redirecting to the dashboard.
 
-## Priority 3 - Skill-gap / quick-improvement feature
-
-Not implemented. Scoped this session (2026-08-18), and it's a bigger,
-different feature than it first looks like - read this before building
-it:
-
-- [ ] **Semantic gap, not just a missing UI**: both matchers'
-      `missing_skills` mean "profile skills not mentioned in *this job's*
-      text" - i.e. skills you have that this posting doesn't happen to
-      repeat. That's the *inverse* of what "skill gap" naturally means
-      here: skills *the job wants that you don't have*. Genuinely
-      unpossessed skills (e.g. a posting asking for Terraform, which
-      isn't in the profile at all) never appear in `missing_skills` today
-      - they're invisible to the current matcher entirely.
-- [ ] Building the real feature needs requirement extraction *from the
-      job posting text* - either a curated skill taxonomy to scan job
-      descriptions against (deterministic, more maintenance, no
-      hallucination risk) or an LLM call per job (flexible, but adds
-      per-job AI latency/cost and hallucination risk that needs
-      guarding against, consistent with `docs/AI.md`'s "deterministic
-      for matching" principle - lean toward the taxonomy approach unless
-      there's a strong reason not to).
-- [ ] Only after that: map an actually-missing skill to a suggestion.
-      Keep suggestions realistic (a day to about a week - a short
-      course, a small lab, a focused GitHub project) and never fabricate
-      a completed certification. A small curated dict (skill ->
-      suggestion), similar in spirit to `SKILL_WEIGHTS`/the alias table
-      already in `app/ai/matcher.py`, is safer than asking an LLM to
-      invent a learning plan.
-
-## Priority 4 - Source-level diagnostics
+## Priority 3 - Source-level diagnostics
 
 - [ ] `SourceRunner` already isolates and logs per-source success/failure,
       but there's no dashboard-visible or persisted status report beyond
       log lines. Only worth building if source reliability becomes a
       recurring debugging pain point - see `docs/DATA_SOURCES.md`.
+
+## Priority 4 - Skill-gap catalog maintenance (low urgency)
+
+The skill-gap/recommendation feature (`app/ai/skill_gap.py`,
+`/analyze/<job_id>`) is implemented and tested - see
+`docs/MATCHING_AND_RANKING.md`'s "Skill-gap analysis" section. Two
+follow-ups, neither urgent:
+
+- [ ] `SKILL_CATALOG` covers ~30 skills relevant to this profile's
+      domain. A job requirement using a skill name outside that list is
+      currently invisible to this feature. Worth expanding if a real
+      posting is found asking for something not covered, not worth
+      pre-emptively guessing at.
+- [ ] The catalog's certifications/courses are hand-checked as of
+      2026-08-19, not live-verified against any API (deliberately - see
+      docs/AI.md). Worth a periodic manual review so a renamed/retired
+      certification doesn't go stale unnoticed. If this is ever extended
+      with an LLM-generated personalized narrative, it must be clearly
+      labeled as AI-generated and kept separate from the curated
+      catalog - see docs/AI.md's "Skill-gap recommendations make zero
+      LLM calls, by design".
 
 ## Explicitly not planned right now
 

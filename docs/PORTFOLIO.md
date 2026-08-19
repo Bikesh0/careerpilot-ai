@@ -103,6 +103,24 @@ difference rather than swept under the "V2 is done" label - the kind of
 judgment call a senior engineer documents rather than either ignores or
 claims is fully resolved before it is.
 
+### Career-recommendation engine (skill-gap analysis)
+
+A job-specific skill-gap feature (`app/ai/skill_gap.py`, `/analyze/<id>`)
+that deliberately solves a different problem than the matchers' own
+"missing skills" field, which actually means the opposite of what it
+sounds like (see `docs/MATCHING_AND_RANKING.md`). It classifies job
+requirements as required vs. nice-to-have with a per-sentence heuristic,
+checks the *candidate's* profile - not just its skills list, but
+experience text and certifications too - for real evidence of each one,
+and recommends real, hand-curated certifications/courses/projects for
+genuine gaps, prioritized by required-first-then-effort. It makes zero
+LLM calls on purpose: a wrong or hallucinated certification
+recommendation is a worse failure mode here than in free-text generation,
+so the entire recommendation catalog is human-curated and verifiable by
+construction rather than model-generated. It also never invents CV
+content - the "weak evidence" notes only point at real gaps already
+present in `profiles/profile.json`.
+
 ### Error handling
 
 Every job source isolates its own failures (a broken source returns an
@@ -182,14 +200,43 @@ explainable. I also found and fixed a real bug where that AI call had no
 timeout and could hang a web request indefinitely."
 
 **How did you test it?**
-"63 automated tests, all mock/fixture-backed - no live network calls or
+"75 automated tests, all mock/fixture-backed - no live network calls or
 LLM dependency in the suite. Several are regression tests I wrote
 specifically after finding and root-causing a real bug live (a corrupted
 profile file, a scraper reading the wrong title field, broken dashboard
-links, a saved-jobs duplicate bug, a silently-discarded V2 score), each
+links, a saved-jobs duplicate bug, a silently-discarded V2 score, a
+sentence-final-punctuation bug that silently hid skill mentions), each
 with a docstring explaining the failure it prevents - and each one I
 verified against the real, live dashboard afterward, not just the test
 suite in isolation."
+
+**How is the skill-gap feature different from what the matchers already
+show as "missing skills"?**
+"They're actually answering opposite questions, which is easy to miss.
+Both matchers' `missing_skills` means 'profile skills this specific job's
+text doesn't happen to repeat' - the inverse of what 'skill gap' means in
+normal usage. A posting asking for Terraform, if it's never in my
+profile at all, never shows up as 'missing' in either matcher's output -
+it's invisible, not just unscored. I traced that precisely before
+building anything, because it would've been easy to ship a feature that
+just re-labeled the existing (wrong) field and called it done. The real
+feature checks the job's text for skills from a curated taxonomy, then
+checks my *own* profile - skills list, experience text, certifications -
+for evidence of each one, so a genuine gap actually surfaces."
+
+**Why does the skill-gap feature make zero LLM calls, when you already
+have Ollama wired up?**
+"Because a wrong recommendation there is a worse failure than a wrong
+sentence in a cover letter. If I ask an LLM to suggest a certification
+and it invents one, or claims an existing one covers something it
+doesn't, that's actively misleading someone about their own career
+planning - not just an awkward paragraph. So I built a small,
+hand-curated catalog of real, currently-existing certifications, courses,
+and project ideas instead, checked against the job and my profile with
+the same deterministic word-boundary matching the ranking matchers use.
+Every recommendation is verifiable by construction because a human
+picked it, not a model - there's nothing 'AI-generated' in there to
+mislabel."
 
 **What would you improve next?**
 "Get real data out of Duunitori and Tyomarkkinatori - both need the

@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  :root{
+    --ink:#0B1220;
+    --surface:#121B2E;
+    --surface-2:#16213A;
+    --border:#233047;
+    --text:#E9E6DC;
+    --muted:#8B96AC;
+    --brass:#C9973F;
+    --brass-soft:rgba(201,151,63,.14);
+    --teal:#4FA6A0;
+    --teal-soft:rgba(79,166,160,.14);
+    --green:#4CAF6D;
+    --green-soft:rgba(76,175,109,.14);
+    --rust:#C9573F;
+    --rust-soft:rgba(201,87,63,.14);
+  }
+
+  .sg-wrap{
+    color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
+  }
+
+  .sg-wrap h2, .sg-wrap h3, .sg-wrap h4{
+    font-family:'Fraunces',Georgia,serif;
+  }
+
+  .sg-header{
+    margin-bottom:24px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--border);
+  }
+
+  .sg-eyebrow{
+    font-size:11px;
+    letter-spacing:.18em;
+    color:var(--brass);
+    text-transform:uppercase;
+    margin:0 0 6px;
+  }
+
+  .sg-header h2{
+    margin:0;
+    font-size:1.7rem;
+  }
+
+  .sg-header p{
+    margin:6px 0 0;
+    color:var(--muted);
+  }
+
+  .sg-back{
+    display:inline-block;
+    margin-bottom:14px;
+    color:var(--teal);
+    text-decoration:none;
+    font-size:.85rem;
+  }
+
+  .sg-back:hover{
+    text-decoration:underline;
+  }
+
+  .sg-note{
+    background:var(--surface);
+    border:1px dashed var(--border);
+    border-radius:10px;
+    padding:14px 18px;
+    color:var(--muted);
+    font-size:.85rem;
+    margin-bottom:24px;
+  }
+
+  .sg-stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+    margin-bottom:28px;
+  }
+
+  .sg-stat{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 18px;
+  }
+
+  .sg-stat-label{
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 6px;
+  }
+
+  .sg-stat-value{
+    font-size:1.6rem;
+    font-weight:600;
+    margin:0;
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+  }
+
+  .sg-section{
+    margin-bottom:32px;
+  }
+
+  .sg-section h3{
+    font-size:1.2rem;
+    margin:0 0 4px;
+  }
+
+  .sg-section-sub{
+    color:var(--muted);
+    font-size:.85rem;
+    margin:0 0 16px;
+  }
+
+  .sg-item{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:4px solid var(--border);
+    border-radius:10px;
+    padding:16px 20px;
+    margin-bottom:12px;
+  }
+
+  .sg-item.sg-matched{
+    border-left-color:var(--green);
+  }
+
+  .sg-item.sg-missing{
+    border-left-color:var(--rust);
+  }
+
+  .sg-item-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .sg-item-skill{
+    font-weight:600;
+    font-size:1.02rem;
+  }
+
+  .sg-badge{
+    font-size:.72rem;
+    font-weight:600;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    padding:3px 10px;
+    border-radius:999px;
+  }
+
+  .sg-badge-matched{
+    background:var(--green-soft);
+    color:var(--green);
+  }
+
+  .sg-badge-missing{
+    background:var(--rust-soft);
+    color:var(--rust);
+  }
+
+  .sg-cv-note{
+    margin-top:10px;
+    font-size:.85rem;
+    color:var(--muted);
+  }
+
+  .sg-rec{
+    margin-top:14px;
+    display:grid;
+    gap:12px;
+  }
+
+  .sg-rec-group h5{
+    margin:0 0 6px;
+    font-size:.75rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--teal);
+  }
+
+  .sg-rec-group ul{
+    margin:0;
+    padding-left:18px;
+    font-size:.85rem;
+    color:var(--text);
+  }
+
+  .sg-rec-group li{
+    margin-bottom:6px;
+  }
+
+  .sg-rec-why{
+    color:var(--muted);
+    display:block;
+    font-size:.8rem;
+  }
+
+  .sg-effort{
+    margin-top:10px;
+    font-size:.78rem;
+    color:var(--muted);
+  }
+
+  .sg-priority-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    counter-reset:sg-priority;
+  }
+
+  .sg-priority-list li{
+    counter-increment:sg-priority;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 18px;
+    margin-bottom:10px;
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+  }
+
+  .sg-priority-list li::before{
+    content:counter(sg-priority);
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    color:var(--brass);
+    font-weight:600;
+    flex-shrink:0;
+  }
+
+  .sg-cv-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+  }
+
+  .sg-cv-list li{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 18px;
+    margin-bottom:10px;
+    font-size:.88rem;
+    color:var(--text);
+  }
+
+  .sg-empty{
+    color:var(--muted);
+    font-size:.85rem;
+  }
+</style>
+
+<div class="sg-wrap">
+
+  <a href="/" class="sg-back">&larr; Back to dashboard</a>
+
+  <div class="sg-header">
+    <p class="sg-eyebrow">Skill Gap Analysis</p>
+    <h2>{{ analysis.job_title }}</h2>
+    <p>{{ analysis.company }}</p>
+  </div>
+
+  {% if analysis.summary.no_requirements_detected %}
+    <div class="sg-note">
+      No specific technical skills from CareerPilot's skill catalog were
+      detected in this posting's text. This doesn't necessarily mean the
+      job has no requirements - only that this feature's curated skill
+      list didn't recognize any in the text it could read. See the note
+      at the bottom of this page for how this detection works.
+    </div>
+  {% endif %}
+
+  <div class="sg-stats">
+    <div class="sg-stat">
+      <p class="sg-stat-label">Required skills matched</p>
+      <p class="sg-stat-value">
+        {{ analysis.summary.required_matched }} / {{ analysis.summary.required_total }}
+      </p>
+    </div>
+    <div class="sg-stat">
+      <p class="sg-stat-label">Nice-to-have matched</p>
+      <p class="sg-stat-value">
+        {{ analysis.summary.nice_to_have_matched }} / {{ analysis.summary.nice_to_have_total }}
+      </p>
+    </div>
+    <div class="sg-stat">
+      <p class="sg-stat-label">Readiness (required skills)</p>
+      <p class="sg-stat-value">{{ analysis.summary.readiness_percent }}%</p>
+    </div>
+  </div>
+
+  <!-- REQUIRED SKILLS -->
+  <div class="sg-section">
+    <h3>Required skills</h3>
+    <p class="sg-section-sub">
+      Skills this posting's text asks for directly (job requirement &rarr;
+      your current skill &rarr; gap &rarr; recommended action).
+    </p>
+
+    {% if analysis.required %}
+      {% for item in analysis.required %}
+        <div class="sg-item {{ 'sg-matched' if item.status == 'matched' else 'sg-missing' }}">
+          <div class="sg-item-top">
+            <span class="sg-item-skill">{{ item.skill }}</span>
+            {% if item.status == 'matched' %}
+              <span class="sg-badge sg-badge-matched">You have this</span>
+            {% else %}
+              <span class="sg-badge sg-badge-missing">Gap</span>
+            {% endif %}
+          </div>
+
+          {% if item.cv_note %}
+            <p class="sg-cv-note">{{ item.cv_note }}</p>
+          {% endif %}
+
+          {% if item.recommendation %}
+            <div class="sg-rec">
+
+              {% if item.recommendation.certifications %}
+                <div class="sg-rec-group">
+                  <h5>Certifications</h5>
+                  <ul>
+                    {% for cert in item.recommendation.certifications %}
+                      <li>
+                        {{ cert.name }}
+                        <span class="sg-rec-why">{{ cert.why }}</span>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {% if item.recommendation.courses %}
+                <div class="sg-rec-group">
+                  <h5>Courses</h5>
+                  <ul>
+                    {% for course in item.recommendation.courses %}
+                      <li>{{ course.provider }} - {{ course.name }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {% if item.recommendation.projects %}
+                <div class="sg-rec-group">
+                  <h5>Practical project</h5>
+                  <ul>
+                    {% for project in item.recommendation.projects %}
+                      <li>
+                        {{ project.title }}
+                        <span class="sg-rec-why">{{ project.description }}</span>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+            </div>
+
+            {% if item.recommendation.effort_days %}
+              <p class="sg-effort">
+                Rough effort estimate: {{ item.recommendation.effort_days[0] }}-{{ item.recommendation.effort_days[1] }} days
+                for a focused first pass (not a guarantee).
+              </p>
+            {% endif %}
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="sg-empty">No required skills detected for this posting.</p>
+    {% endif %}
+  </div>
+
+  <!-- NICE TO HAVE -->
+  <div class="sg-section">
+    <h3>Nice-to-have skills</h3>
+    <p class="sg-section-sub">
+      Mentioned as preferred/bonus, not required.
+    </p>
+
+    {% if analysis.nice_to_have %}
+      {% for item in analysis.nice_to_have %}
+        <div class="sg-item {{ 'sg-matched' if item.status == 'matched' else 'sg-missing' }}">
+          <div class="sg-item-top">
+            <span class="sg-item-skill">{{ item.skill }}</span>
+            {% if item.status == 'matched' %}
+              <span class="sg-badge sg-badge-matched">You have this</span>
+            {% else %}
+              <span class="sg-badge sg-badge-missing">Gap</span>
+            {% endif %}
+          </div>
+
+          {% if item.cv_note %}
+            <p class="sg-cv-note">{{ item.cv_note }}</p>
+          {% endif %}
+
+          {% if item.recommendation %}
+            <div class="sg-rec">
+              {% if item.recommendation.certifications %}
+                <div class="sg-rec-group">
+                  <h5>Certifications</h5>
+                  <ul>
+                    {% for cert in item.recommendation.certifications %}
+                      <li>
+                        {{ cert.name }}
+                        <span class="sg-rec-why">{{ cert.why }}</span>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {% if item.recommendation.courses %}
+                <div class="sg-rec-group">
+                  <h5>Courses</h5>
+                  <ul>
+                    {% for course in item.recommendation.courses %}
+                      <li>{{ course.provider }} - {{ course.name }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {% if item.recommendation.projects %}
+                <div class="sg-rec-group">
+                  <h5>Practical project</h5>
+                  <ul>
+                    {% for project in item.recommendation.projects %}
+                      <li>
+                        {{ project.title }}
+                        <span class="sg-rec-why">{{ project.description }}</span>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="sg-empty">No nice-to-have skills detected for this posting.</p>
+    {% endif %}
+  </div>
+
+  <!-- PRIORITY ACTIONS -->
+  <div class="sg-section">
+    <h3>Recommended next steps</h3>
+    <p class="sg-section-sub">
+      Missing required skills first, then nice-to-have - within each,
+      ordered by the quickest realistic effort first.
+    </p>
+
+    {% if analysis.priority_actions %}
+      <ol class="sg-priority-list">
+        {% for item in analysis.priority_actions %}
+          <li>
+            <span>
+              <strong>{{ item.skill }}</strong>
+              ({{ item.priority.replace('_', ' ') }})
+              {% if item.recommendation.effort_days %}
+                - ~{{ item.recommendation.effort_days[0] }}-{{ item.recommendation.effort_days[1] }} days
+              {% endif %}
+            </span>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="sg-empty">No skill gaps found for this posting - nice work.</p>
+    {% endif %}
+  </div>
+
+  <!-- CV IMPROVEMENTS -->
+  <div class="sg-section">
+    <h3>CV / profile improvement suggestions</h3>
+    <p class="sg-section-sub">
+      Skills you already claim, but that could use stronger evidence.
+      Nothing here invents experience - it only points at gaps in what's
+      already in your profile.
+    </p>
+
+    {% if analysis.cv_improvements %}
+      <ul class="sg-cv-list">
+        {% for note in analysis.cv_improvements %}
+          <li>{{ note }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="sg-empty">No evidence gaps found for this posting's matched skills.</p>
+    {% endif %}
+  </div>
+
+  <div class="sg-note">
+    <strong>How this works:</strong> skill detection uses a curated,
+    hand-checked list of real, well-known certifications/courses/providers
+    - nothing here is AI-generated, so there's no hallucination risk in
+    what's recommended. Required vs. nice-to-have is a heuristic based on
+    hedging language ("nice to have", "preferred", "a plus", ...) per
+    sentence, not a guaranteed parse of the posting's actual structure.
+    Only skills in CareerPilot's curated catalog can be detected - a
+    requirement using a skill name outside that catalog won't appear
+    here. See <code>docs/MATCHING_AND_RANKING.md</code> for full detail.
+  </div>
+
+</div>
+{% endblock %}

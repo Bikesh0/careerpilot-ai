@@ -222,6 +222,113 @@ This matcher operates on whatever job list `_search_jobs()` returns
 otherwise) via `_normalise_job()`, which reads common attributes off
 either a dict or an object.
 
+## Skill-gap analysis vs. matcher `missing_skills` (`app/ai/skill_gap.py`)
+
+This is a **separate feature from both matchers above**, reachable from
+the dashboard via a "Skill Gap" button on each job card
+(`/analyze/<job_id>`), not part of the ranking pipeline. It exists
+because neither matcher's `missing_skills` answers the question a human
+means by "skill gap":
+
+- V1/V2 `missing_skills` = profile skills that this *specific job's*
+  text doesn't happen to repeat. A skill the job never mentions but the
+  candidate has is "missing" by this definition - which is backwards
+  from what "skill gap" means in normal usage, and a posting asking for
+  a skill entirely absent from the profile (e.g. Terraform, if it's
+  never been added to `profiles/profile.json`) never appears in either
+  matcher's output at all. It's invisible, not merely unscored.
+- `app/ai/skill_gap.analyze_skill_gap(profile, job)` answers the actual
+  question: does this job ask for something the candidate doesn't
+  demonstrate anywhere in their profile? It checks the job's text
+  against a curated taxonomy of skills, and the *candidate's* skills,
+  experience descriptions, certifications, and summary text (not just
+  the bare `skills` list) for evidence of each one.
+
+### Required vs. nice-to-have
+
+Job postings rarely have clean, machine-parseable "Requirements" /
+"Nice to have" sections once reduced to plain text. Instead of relying
+on section headers, `analyze_skill_gap()` splits the job text into
+sentences/lines and checks each one independently for a hedging phrase
+("nice to have", "preferred", "a plus", "bonus", "desirable", "optional",
+...). A skill mentioned in a hedged sentence is nice-to-have; anywhere
+else, it's treated as required. This is a heuristic, not a real parser -
+see "Known limitations" below.
+
+### Word-boundary matching, and a bug found and fixed in it
+
+`app/ai/skill_gap.py` has its own small `_normalize`/`_contains_term`
+pair rather than importing the equivalent helpers from
+`app/search/v2/matching/signals.py` - deliberately decoupled, mirroring
+the precedent `app/ai/matcher.py` already set with its own independent
+word-boundary matcher (V2's internals stay owned by V2's pipeline).
+
+One real difference from V2's version, found while building this
+feature: V2's `normalize_skill()` keeps periods in the allowed character
+set (`[^a-z0-9+#. ]+`). That's harmless for V2's use case (matching a
+short skill string like `"C#"` against a whole concatenated text blob),
+but this feature tokenizes real natural-language *sentences* pulled
+straight from job postings, where a skill name is very often the last
+word before a full stop - `"...experience with Terraform."`. Keeping the
+period there glues it onto the token (`"terraform."`), which then never
+exactly equals the alias token (`"terraform"`), silently hiding the
+match. `app/ai/skill_gap.py`'s normalizer strips periods entirely instead
+- verified with `tests/test_skill_gap.py::test_trailing_sentence_punctuation_does_not_hide_a_skill_mention`,
+which fails against the period-preserving version of the regex.
+
+### Recommendation catalog
+
+`SKILL_CATALOG` (`app/ai/skill_gap.py`) is a small, hand-curated,
+~30-entry dict covering skills relevant to this profile's domain (Linux,
+networking, cloud platforms, containers, SIEM/security tooling,
+incident response, pentesting, compliance, etc.). Each entry has
+detection aliases plus real, well-known, currently-existing
+certifications, courses, and a realistic hands-on project idea - nothing
+invented, and every certification's "why" describes only what it
+actually, publicly covers. **This is why the feature makes zero LLM
+calls** (see docs/AI.md): a recommendation is exactly the kind of claim
+that must not be hallucinated, and a hand-curated catalog is verifiable
+by construction, with no separate "AI-generated" content to mix in or
+mislabel. A few entries (e.g. Git, VPN) have no real standalone
+certification and deliberately list an empty `certifications` array
+rather than inventing one -
+`tests/test_skill_gap.py::test_recommendations_never_claim_certifications_that_are_absent`
+guards this directly.
+
+Missing skills are prioritized required-first, then by a rough
+`effort_days` estimate (quickest realistic effort first) - see
+`tests/test_skill_gap.py::test_priority_actions_lead_with_required_gaps_ordered_by_effort`.
+
+### CV/profile evidence check
+
+For a skill the job wants that the candidate *does* have somewhere in
+their profile, the feature checks **where**: only in the bare `skills`
+list, only in an experience entry's text, or both. A skill claimed in
+the skills list but never demonstrated in any experience entry is
+flagged with a note suggesting the candidate add a concrete example -
+it never invents one. This is the CV-improvement mechanism, and it's
+strictly a cross-reference of data already in `profiles/profile.json` -
+no new claims are ever added.
+
+### Known limitations
+
+- **Curated taxonomy, not job-text extraction.** A skill the job
+  mentions that isn't one of the ~30 `SKILL_CATALOG` keys is invisible
+  to this feature entirely - the tradeoff was made deliberately (a
+  curated list is deterministic, has no hallucination risk, and is easy
+  to audit; a per-job LLM call to extract arbitrary requirements would
+  add latency, cost, and a real hallucination surface for exactly the
+  kind of claim - "you need X certification" - that must be trustworthy).
+- **Required vs. nice-to-have is a heuristic**, not a structural parse of
+  the posting. A posting phrased unusually (no hedging language at all,
+  or hedging language this list doesn't recognize) will default every
+  detected skill to "required".
+- **No live course/certification verification.** The catalog is
+  hand-checked as of this writing, not checked against a live API - a
+  certification could be renamed or retired after the fact. There's no
+  paid API involved by design (see docs/AI.md), so this is a static,
+  periodically-reviewable list, not a live-verified one.
+
 ## Missing-data behavior
 
 Both matchers treat missing profile data (empty skills/titles/locations)

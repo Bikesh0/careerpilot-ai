@@ -12,6 +12,7 @@ from app.search.v2.factory import (
 from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
 from app.ai.profile_extractor import ProfileExtractor
+from app.ai.skill_gap import analyze_skill_gap
 from app.parsers.cv_parser import CVParser
 from app.services.application_service import ApplicationService
 from app.services.ai_document_service import AIDocumentService
@@ -550,6 +551,30 @@ def coverletter(job_id):
         profile=profile,
         job=job,
         letter=letter
+    )
+
+
+# =========================================================
+# SKILL GAP ANALYSIS
+# =========================================================
+
+@web.route("/analyze/<int:job_id>")
+def analyze(job_id):
+
+    job = manager.get_job(job_id)
+
+    if job is None:
+
+        return "Job not found.", 404
+
+    profile = _load_profile()
+
+    analysis = analyze_skill_gap(profile, job)
+
+    return render_template(
+        "skill_gap.html",
+        job=job,
+        analysis=analysis,
     )
 
 

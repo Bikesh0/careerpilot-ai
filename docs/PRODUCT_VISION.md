@@ -2,7 +2,7 @@
 
 The intended end-to-end flow, and the honest status of each step. Nothing
 below is described as complete unless it was verified working in this
-repository as of this session (2026-08-18).
+repository as of this session (2026-08-19).
 
 ```
 User Profile           IMPLEMENTED
@@ -25,19 +25,32 @@ Match Explanation        IMPLEMENTED
      |                  output but the dashboard template currently only
      |                  renders matched_skills - see "In progress" below.
      v
-Skill Gap                 PLANNED
-     |                  Not implemented, and not as simple as exposing
-     |                  existing data: both matchers' missing_skills
-     |                  means "profile skills this job's text doesn't
-     |                  mention" - the inverse of "skills the job wants
-     |                  that you don't have." A posting asking for a
-     |                  skill entirely absent from the profile (e.g.
-     |                  Terraform) is invisible to both matchers today.
-     |                  Real skill-gap detection needs requirement
-     |                  extraction from the job text itself - see
-     |                  NEXT_TASKS.md Priority 4 for the scoped options
-     |                  (a curated taxonomy vs. a per-job LLM call) and
-     |                  why the taxonomy approach is the safer default.
+Skill Gap                 IMPLEMENTED
+     |                  `/analyze/<job_id>` (a "Skill Gap" button on
+     |                  every dashboard job card) - see
+     |                  `app/ai/skill_gap.py`. Genuinely closes the gap
+     |                  both matchers' missing_skills has: their
+     |                  "missing_skills" means "profile skills this
+     |                  job's text doesn't mention" - the inverse of
+     |                  "skills the job wants that you don't have."
+     |                  This feature scans the job text against a
+     |                  curated skill taxonomy (~30 skills relevant to
+     |                  this profile's domain), classifies each match as
+     |                  required or nice-to-have via a per-sentence
+     |                  hedging-language heuristic ("nice to have",
+     |                  "preferred", "a plus", ...), and checks whether
+     |                  the *candidate* - not just the job posting -
+     |                  demonstrates it anywhere in skills/experience/
+     |                  certifications/summary text. A posting asking
+     |                  for Terraform, entirely absent from the profile,
+     |                  now shows up as a real, recommended-action gap
+     |                  instead of being invisible. Deliberately makes
+     |                  zero LLM calls - see docs/AI.md and
+     |                  docs/MATCHING_AND_RANKING.md's "Skill-gap
+     |                  analysis" section for the full mechanism,
+     |                  recommendation catalog, and known limitations
+     |                  (curated taxonomy scope, heuristic required-vs-
+     |                  nice-to-have split).
      v
 CV Improvement            IN PROGRESS
      |                  /settings/upload-cv accepts a PDF/DOCX upload,
