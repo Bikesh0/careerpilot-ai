@@ -99,12 +99,16 @@ def test_withdrawn_is_a_valid_status_and_counted_separately(
     assert stats["interview_stage_or_later"] == 0
 
 
-def test_dashboard_explains_what_profile_match_means(monkeypatch, tmp_path):
+def test_dashboard_gauge_is_labeled_profile_match_not_bare_match(
+    monkeypatch, tmp_path
+):
     """
-    Regression test for the mission requirement that a bare percentage
-    (which can legitimately be as low as single digits on a title/
-    location mismatch) must never be shown without an explanation of
-    what it actually measures.
+    The gauge label stays "Profile Match" rather than a bare "Match" -
+    a small, permanent clarification of what the number is. The longer
+    explanatory paragraph that used to sit above the job list was
+    removed at the user's explicit request (it read as unwanted
+    boilerplate/disclaimer text cluttering the dashboard) - see
+    docs/PRODUCT_VISION.md.
     """
 
     jobs = [make_ranked_job("https://example.test/jobs/1")]
@@ -114,7 +118,8 @@ def test_dashboard_explains_what_profile_match_means(monkeypatch, tmp_path):
     body = response.get_data(as_text=True)
 
     assert "Profile Match" in body
-    assert "not</strong> a probability" in body
+    assert "What \"Profile Match\" means" not in body
+    assert "hiring probability" not in body.lower()
 
 
 def test_every_job_card_has_a_working_apply_link(monkeypatch, tmp_path):
