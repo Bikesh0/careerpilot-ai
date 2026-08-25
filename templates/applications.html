@@ -15,6 +15,13 @@
 </p>
 {% endif %}
 
+{% if not applications %}
+<p class="text-muted">
+  You haven't added an application yet. Save a job or mark one as
+  Applied from the dashboard to start tracking your pipeline.
+</p>
+{% else %}
+
 <table class="table table-hover">
 
 <thead>
@@ -152,5 +159,7 @@ href="/delete/{{ app[0] }}">
 </tbody>
 
 </table>
+
+{% endif %}
 
 {% endblock %}
