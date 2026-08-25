@@ -92,8 +92,14 @@ class AshbySource:
                         or ""
                     ).strip()
 
+                    # Ashby's job-board list endpoint never has a
+                    # "description" key (verified against the live API)
+                    # - the full posting text is under "descriptionPlain"
+                    # (with an HTML-formatted twin, "descriptionHtml").
+                    # Reading the wrong key silently produced an empty
+                    # description for every Ashby job.
                     description = (
-                        item.get("description", "")
+                        item.get("descriptionPlain", "")
                         or ""
                     ).strip()
 

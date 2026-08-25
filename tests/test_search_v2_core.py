@@ -134,11 +134,13 @@ def test_deduplicate_jobs_collapses_normalized_duplicates():
 
 def test_deduplicate_jobs_keeps_different_locations():
     helsinki = make_job(
-        location="Helsinki"
+        location="Helsinki",
+        url="https://example.test/jobs/helsinki",
     )
 
     espoo = make_job(
-        location="Espoo"
+        location="Espoo",
+        url="https://example.test/jobs/espoo",
     )
 
     result = deduplicate_jobs([helsinki, espoo])
@@ -148,11 +150,13 @@ def test_deduplicate_jobs_keeps_different_locations():
 
 def test_deduplicate_jobs_keeps_different_external_ids():
     first = make_job(
-        external_id="job-1"
+        external_id="job-1",
+        url="https://example.test/jobs/job-1",
     )
 
     second = make_job(
-        external_id="job-2"
+        external_id="job-2",
+        url="https://example.test/jobs/job-2",
     )
 
     result = deduplicate_jobs([first, second])
@@ -164,16 +168,43 @@ def test_deduplicate_jobs_external_id_is_scoped_to_source():
     first = make_job(
         source="Duunitori",
         external_id="123",
+        url="https://duunitori.test/jobs/123",
     )
 
     second = make_job(
         source="Jobly",
         external_id="123",
+        url="https://jobly.test/jobs/123",
     )
 
     result = deduplicate_jobs([first, second])
 
     assert result == [first, second]
+
+
+def test_deduplicate_jobs_collapses_same_url_across_sources():
+    """
+    Regression test for Section 9's dedup requirement: the same
+    posting appearing on two different aggregators, reached through the
+    same URL, must collapse to one job even when title/company/location
+    text differs slightly (a common case - one source's listing page
+    excerpt vs. another's, or a slightly different title casing).
+    """
+
+    first = make_job(
+        title="Security Engineer",
+        url="https://employer.example/careers/123?utm_source=duunitori",
+    )
+
+    duplicate = make_job(
+        title="Security Engineer - SecOps",
+        company="Example Corp.",
+        url="https://employer.example/careers/123?utm_source=jobly",
+    )
+
+    result = deduplicate_jobs([first, duplicate])
+
+    assert result == [first]
 
 
 def test_normalize_job_deduplicates_skills():

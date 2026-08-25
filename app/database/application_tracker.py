@@ -306,8 +306,28 @@ class ApplicationTracker:
 
         cursor = self.db.cursor()
 
+        # Named columns, not SELECT * - a database file created before
+        # create_table()'s column order was last changed still has its
+        # original physical column order (ALTER TABLE ADD COLUMN in
+        # migrate_table() only appends missing columns, it never
+        # reorders existing ones). SELECT * returns whatever the
+        # physical order happens to be, silently breaking every caller
+        # that indexes the result positionally (e.g.
+        # templates/applications.html's app[1]/app[2]) against a file
+        # that predates a column reorder.
         cursor.execute("""
-            SELECT *
+            SELECT
+                id,
+                company,
+                title,
+                location,
+                source,
+                status,
+                applied_date,
+                resume_file,
+                cover_letter_file,
+                notes,
+                job_url
             FROM applications
             ORDER BY id DESC
         """)

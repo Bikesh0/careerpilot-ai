@@ -57,6 +57,41 @@ class CanonicalJob:
 
         return location
 
+    def canonical_url(self) -> str:
+        """
+        Normalize ``url`` for duplicate detection only - ``self.url``
+        itself is never modified, so the original link the user clicks
+        through to is always preserved.
+
+        Mirrors app.search.manager.SearchManager._canonical_url() (the
+        V1 pipeline's URL dedup signal), ported rather than imported to
+        keep V2 decoupled from V1 internals - the same precedent
+        app/ai/skill_gap.py already sets with its own independent
+        normalizer.
+        """
+
+        url = str(self.url or "").strip().lower()
+
+        if not url:
+            return ""
+
+        if "?" in url:
+            base, query = url.split("?", 1)
+
+            ignored_prefixes = (
+                "utm_", "source=", "ref=", "referrer=", "tracking=",
+            )
+
+            kept_parameters = [
+                parameter
+                for parameter in query.split("&")
+                if not parameter.lower().startswith(ignored_prefixes)
+            ]
+
+            url = f"{base}?{'&'.join(kept_parameters)}" if kept_parameters else base
+
+        return url.rstrip("/")
+
     def dedupe_key(self) -> str:
         if self.external_id:
             return (
