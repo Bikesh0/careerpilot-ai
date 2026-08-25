@@ -193,6 +193,56 @@
   .cvs-level-basic{ background:var(--rust-soft); color:var(--rust); }
 
   .cvs-evidence{ color:var(--muted); }
+
+  .cvs-tier{
+    font-size:.68rem;
+    font-weight:600;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    padding:2px 8px;
+    border-radius:999px;
+    white-space:nowrap;
+    display:inline-block;
+    margin:2px 4px 2px 0;
+  }
+
+  .cvs-tier-built{ background:var(--green-soft); color:var(--green); }
+  .cvs-tier-professional_experience{ background:var(--green-soft); color:var(--green); }
+  .cvs-tier-certified{ background:var(--teal-soft); color:var(--teal); }
+  .cvs-tier-practiced{ background:var(--brass-soft); color:var(--brass); }
+  .cvs-tier-studied{ background:var(--brass-soft); color:var(--brass); }
+  .cvs-tier-knows{ background:var(--rust-soft); color:var(--rust); }
+
+  .cvs-progress-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:14px;
+  }
+
+  .cvs-progress-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 18px;
+  }
+
+  .cvs-progress-card h4{
+    font-size:.85rem;
+    margin:0 0 10px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+  }
+
+  .cvs-progress-item{
+    font-size:.85rem;
+    margin-bottom:6px;
+  }
+
+  .cvs-progress-item a{
+    color:var(--teal);
+    text-decoration:none;
+  }
 </style>
 
 <div class="cvs-wrap">
@@ -268,6 +318,96 @@
       <p class="cvs-simple-note">No significant gaps found - your profile looks solid.</p>
     {% endif %}
   </div>
+
+  {% if career_tracks %}
+    <div class="cvs-section">
+      <h3>Career track fit</h3>
+      <p style="color:var(--muted);font-size:.85rem;margin:0 0 14px;">
+        How much of each track's key skills your profile actually
+        demonstrates, weighted by evidence strength - not a hiring
+        probability. "Market signal" (when shown) reflects how often
+        these skills appear in jobs you've already searched, not
+        external market research.
+      </p>
+      {% for track in career_tracks[:5] %}
+        <div class="cvs-progress-card" style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <strong style="color:var(--text);">{{ track.display }}</strong>
+            <span style="font-family:'IBM Plex Mono',ui-monospace,monospace;color:var(--teal);">
+              {{ track.profile_fit }}% profile fit
+              {% if track.market_signal is not none %}
+                &middot; {{ track.market_signal }}% of searched jobs mention it
+              {% endif %}
+            </span>
+          </div>
+          {% if track.missing_skills %}
+            <p style="color:var(--muted);font-size:.82rem;margin:8px 0 0;">
+              Biggest gaps: {{ track.missing_skills[:3]|join(", ") }}
+            </p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if career_profile and (career_profile.continuity.in_progress or career_profile.continuity.recently_built) %}
+    <div class="cvs-section">
+      <h3>Your career progress</h3>
+      <div class="cvs-progress-grid">
+        {% if career_profile.continuity.in_progress %}
+          <div class="cvs-progress-card">
+            <h4>Already underway - continue these first</h4>
+            {% for item in career_profile.continuity.in_progress %}
+              <div class="cvs-progress-item">
+                <a href="/projects/{{ item.id }}">{{ item.title }}</a>
+                ({{ item.skill_display }}, {{ item.status }})
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if career_profile.continuity.recently_built %}
+          <div class="cvs-progress-card">
+            <h4>Verified evidence you've already built</h4>
+            {% for item in career_profile.continuity.recently_built %}
+              <div class="cvs-progress-item">
+                <a href="/projects/{{ item.id }}">{{ item.title }}</a>
+                ({{ item.skill_display }})
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if career_profile and career_profile.skills %}
+    <details class="cvs-details">
+      <summary>Evidence type per skill (what kind of proof exists, not just how strong)</summary>
+
+      <div style="overflow-x:auto;">
+        <table class="cvs-skill-table">
+          <thead>
+            <tr>
+              <th>Skill</th>
+              <th>Evidence type(s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in career_profile.skills %}
+              <tr>
+                <td>{{ entry.skill }}</td>
+                <td>
+                  {% for label in entry.labels %}
+                    <span class="cvs-tier cvs-tier-{{ entry.tiers[loop.index0] }}">{{ label }}</span>
+                  {% endfor %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% endif %}
 
   <details class="cvs-details">
     <summary>Full skill-by-skill breakdown</summary>

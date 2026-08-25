@@ -14,7 +14,9 @@
     --teal:#4FA6A0;
     --teal-soft:rgba(79,166,160,.14);
     --green:#4CAF6D;
+    --green-soft:rgba(76,175,109,.14);
     --rust:#C9573F;
+    --rust-soft:rgba(201,87,63,.14);
   }
 
   .cp-wrap{
@@ -213,6 +215,22 @@
     font-size:.78rem;
     font-weight:600;
   }
+
+  .cp-readiness{
+    display:inline-block;
+    font-size:.72rem;
+    font-weight:600;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    padding:3px 10px;
+    border-radius:999px;
+    margin-bottom:12px;
+  }
+
+  .cp-readiness-apply_now{ background:var(--green-soft); color:var(--green); }
+  .cp-readiness-apply_stretch{ background:var(--teal-soft); color:var(--teal); }
+  .cp-readiness-prepare_then_apply{ background:var(--brass-soft); color:var(--brass); }
+  .cp-readiness-low_priority, .cp-readiness-exclude{ background:var(--rust-soft); color:var(--rust); }
 
   /* ---------- match reasons ---------- */
 
@@ -589,6 +607,15 @@
             {% endif %}
 
           </div>
+
+
+          <!-- APPLICATION READINESS -->
+
+          {% if item.application_readiness %}
+            <span class="cp-readiness cp-readiness-{{ item.application_readiness.level }}">
+              {{ item.application_readiness.label }}
+            </span>
+          {% endif %}
 
 
           <!-- MATCHED SKILLS -->

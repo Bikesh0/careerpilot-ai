@@ -16,7 +16,11 @@ from app.ai.profile_loader import ProfileLoader
 from app.ai.profile_extractor import ProfileExtractor
 from app.ai.skill_gap import analyze_skill_gap, SKILL_CATALOG
 from app.ai.geo_normalizer import is_excluded_by_default
+from app.ai.application_readiness import classify_application_readiness
 from app.ai.cv_strength import analyze_cv_strength
+from app.ai.career_profile import build_career_profile
+from app.ai.career_tracks import rank_career_tracks, classify_job_family
+from app.ai.hiring_perspective import build_hiring_perspective
 from app.ai.interview_prep import InterviewPrepBuilder
 from app.ai.project_coach import ProjectCoach
 from app.parsers.cv_parser import CVParser
@@ -409,6 +413,29 @@ def _attach_interview_readiness(ranked):
     return ranked
 
 
+def _attach_application_readiness(ranked):
+    """
+    Flag each ranked dashboard card with a five-tier "should I apply to
+    this one" verdict (app/ai/application_readiness.py), computed from
+    the same match_score/missing_skills data already produced by
+    _rank_jobs() - no extra scoring pass, no per-job Career Fit &
+    Growth analysis (that stays a deliberate, heavier, opt-in deep
+    dive on /analyze/<job_id>, not something run for every dashboard
+    card on every load).
+    """
+
+    for item in ranked:
+
+        missing_skills = item.get("missing_skills") or []
+
+        item["application_readiness"] = classify_application_readiness(
+            match_score=item.get("match_score"),
+            missing_required_count=len(missing_skills) or None,
+        )
+
+    return ranked
+
+
 # =========================================================
 # CV STRENGTH (Layer 1 - general, job-independent analysis)
 # =========================================================
@@ -418,14 +445,36 @@ def cv_strength():
 
     profile = _load_profile()
 
-    verified_skill_keys = ProjectService().verified_skill_keys()
+    project_service = ProjectService()
+    verified_skill_keys = project_service.verified_skill_keys()
 
     analysis = analyze_cv_strength(profile, verified_skill_keys)
+
+    career_profile = build_career_profile(
+        profile,
+        verified_skill_keys=verified_skill_keys,
+        projects=project_service.get_all(),
+    )
+
+    # Market signal is real-but-limited: whatever jobs the app's own
+    # last search actually returned, currently held in
+    # manager.latest_jobs - never a fresh scrape performed just for
+    # this ranking. Left as None when nothing has been searched yet,
+    # so rank_career_tracks() shows "no data" honestly rather than a
+    # misleading 0%.
+    job_texts = [
+        f"{getattr(job, 'title', '')} {getattr(job, 'description', '')}"
+        for job in manager.latest_jobs
+    ] or None
+
+    career_tracks = rank_career_tracks(career_profile, job_texts=job_texts)
 
     return render_template(
         "cv_strength.html",
         profile=profile,
         analysis=analysis,
+        career_profile=career_profile,
+        career_tracks=career_tracks,
     )
 
 
@@ -484,6 +533,7 @@ def dashboard():
     )
 
     ranked = _attach_interview_readiness(ranked)
+    ranked = _attach_application_readiness(ranked)
 
     # -----------------------------------------------------
     # Render dashboard
@@ -530,6 +580,7 @@ def search():
     )
 
     ranked = _attach_interview_readiness(ranked)
+    ranked = _attach_application_readiness(ranked)
 
     service = ApplicationService()
     stats = service.statistics()
@@ -852,10 +903,33 @@ def analyze(job_id):
         existing_projects=ProjectService().get_all(),
     )
 
+    # Uses Requirement Coverage (this posting's own detected-skill
+    # coverage), not the dashboard's title/location-weighted Profile
+    # Match - a more specific "should I apply to this one" signal once
+    # a candidate is already looking at this posting's own deep-dive
+    # page. Skipped entirely when nothing could be reliably extracted
+    # at all (no_requirements_detected) - there's no honest fit signal
+    # to classify in that case, so no verdict is shown rather than a
+    # misleading one.
+    readiness = None
+
+    if not analysis["summary"]["no_requirements_detected"]:
+        readiness = classify_application_readiness(
+            match_score=analysis["summary"]["readiness_percent"],
+            ready_to_apply=analysis["ready_to_apply"],
+            missing_required_count=analysis["summary"]["required_missing"],
+        )
+
+    hiring_perspective = build_hiring_perspective(profile, job, analysis)
+    job_family = classify_job_family(job)
+
     return render_template(
         "skill_gap.html",
         job=job,
         analysis=analysis,
+        readiness=readiness,
+        hiring_perspective=hiring_perspective,
+        job_family=job_family,
     )
 
 

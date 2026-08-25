@@ -332,6 +332,91 @@
     color:var(--green);
   }
 
+  .sg-readiness{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-size:.85rem;
+    color:var(--muted);
+    margin:-16px 0 24px;
+  }
+
+  .sg-readiness-badge{
+    font-size:.72rem;
+    font-weight:600;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    padding:3px 10px;
+    border-radius:999px;
+  }
+
+  .sg-readiness-apply_now{
+    background:var(--green-soft); color:var(--green);
+  }
+
+  .sg-readiness-apply_stretch{
+    background:var(--teal-soft); color:var(--teal);
+  }
+
+  .sg-readiness-prepare_then_apply{
+    background:var(--brass-soft); color:var(--brass);
+  }
+
+  .sg-readiness-low_priority, .sg-readiness-exclude{
+    background:var(--rust-soft); color:var(--rust);
+  }
+
+  .sg-family-primary{
+    background:var(--teal-soft); color:var(--teal);
+  }
+
+  .sg-family-secondary{
+    background:var(--brass-soft); color:var(--brass);
+  }
+
+  .sg-perspective-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:14px;
+    margin-bottom:28px;
+  }
+
+  .sg-perspective-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 18px;
+  }
+
+  .sg-perspective-card h5{
+    margin:0 0 8px;
+    font-size:.72rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  .sg-perspective-level{
+    display:inline-block;
+    font-size:.72rem;
+    font-weight:600;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    padding:3px 10px;
+    border-radius:999px;
+    margin-bottom:8px;
+  }
+
+  .sg-perspective-strong{ background:var(--green-soft); color:var(--green); }
+  .sg-perspective-developing{ background:var(--brass-soft); color:var(--brass); }
+  .sg-perspective-evidence_needed{ background:var(--rust-soft); color:var(--rust); }
+
+  .sg-perspective-card p{
+    margin:0;
+    font-size:.82rem;
+    color:var(--muted);
+  }
+
   .sg-score-projection{
     background:var(--surface);
     border:1px solid var(--border);
@@ -367,6 +452,14 @@
       <p class="sg-eyebrow">Career Fit &amp; Growth</p>
       <h2>{{ analysis.job_title }}</h2>
       <p>{{ analysis.company }}</p>
+      {% if job_family and job_family.primary %}
+        <p style="margin-top:6px;">
+          <span class="sg-badge sg-family-primary">{{ job_family.primary.display }}</span>
+          {% if job_family.secondary %}
+            <span class="sg-badge sg-family-secondary">{{ job_family.secondary.display }}</span>
+          {% endif %}
+        </p>
+      {% endif %}
     </div>
     {% if job.url %}
       <a class="sg-start-project" href="{{ job.url }}" target="_blank" rel="noopener noreferrer">
@@ -393,6 +486,47 @@
     {% endif %}
     <span>{{ analysis.one_next_action.message }}</span>
   </div>
+
+  {% if readiness %}
+    <p class="sg-readiness">
+      <span class="sg-readiness-badge sg-readiness-{{ readiness.level }}">{{ readiness.label }}</span>
+      <span>{{ readiness.reason }}</span>
+    </p>
+  {% endif %}
+
+  {% if hiring_perspective %}
+    <div class="sg-section">
+      <h3>How each stage of hiring would see this application</h3>
+      <p class="sg-section-sub">
+        Three separate views, never blended into one score - a
+        candidate can look strong to a keyword screen while a
+        technical manager wants more proof, or vice versa.
+      </p>
+      <div class="sg-perspective-grid">
+        <div class="sg-perspective-card">
+          <h5>ATS / Keyword Screening</h5>
+          {% if hiring_perspective.ats.level %}
+            <span class="sg-perspective-level sg-perspective-{{ hiring_perspective.ats.level }}">{{ hiring_perspective.ats.label }}</span>
+          {% endif %}
+          <p>{{ hiring_perspective.ats.detail }}</p>
+        </div>
+        <div class="sg-perspective-card">
+          <h5>HR / Recruiter</h5>
+          {% if hiring_perspective.hr.level %}
+            <span class="sg-perspective-level sg-perspective-{{ hiring_perspective.hr.level }}">{{ hiring_perspective.hr.label }}</span>
+          {% endif %}
+          <p>{{ hiring_perspective.hr.detail }}</p>
+        </div>
+        <div class="sg-perspective-card">
+          <h5>Technical Manager</h5>
+          {% if hiring_perspective.technical.level %}
+            <span class="sg-perspective-level sg-perspective-{{ hiring_perspective.technical.level }}">{{ hiring_perspective.technical.label }}</span>
+          {% endif %}
+          <p>{{ hiring_perspective.technical.detail }}</p>
+        </div>
+      </div>
+    </div>
+  {% endif %}
 
   {% if analysis.match_score %}
     <div class="sg-score-projection">
