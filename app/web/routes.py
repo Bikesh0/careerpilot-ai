@@ -15,6 +15,7 @@ from app.ai.matcher import JobMatcher
 from app.ai.profile_loader import ProfileLoader
 from app.ai.profile_extractor import ProfileExtractor
 from app.ai.skill_gap import analyze_skill_gap, SKILL_CATALOG
+from app.ai.geo_normalizer import is_excluded_by_default
 from app.ai.cv_strength import analyze_cv_strength
 from app.ai.interview_prep import InterviewPrepBuilder
 from app.ai.project_coach import ProjectCoach
@@ -223,6 +224,20 @@ def _search_jobs(profile=None, force_refresh=False):
             ranked = service.search(
                 limit=50
             )
+
+            # Geographic scope: Finland first, Europe second, outside
+            # Europe excluded by default (see app/ai/geo_normalizer.py
+            # - a location it can't confidently classify is never
+            # excluded, only a confidently-identified non-European one
+            # is). Filtered here, before local ids are assigned below,
+            # so /analyze/<id> etc. always resolve to the same job the
+            # dashboard actually displays at that position.
+            ranked = [
+                item for item in ranked
+                if not is_excluded_by_default(
+                    getattr(item.job, "location", "")
+                )
+            ]
 
             print(
                 f"V2 search returned "

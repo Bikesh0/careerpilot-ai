@@ -5,6 +5,7 @@ from app.search.search_profile import SearchProfile
 from app.search.sources.web_sources import (
     JoblySource,
 )
+from app.ai.geo_normalizer import is_excluded_by_default
 
 # DuunitoriSource is deliberately not registered here.
 #
@@ -163,6 +164,18 @@ class SearchManager:
 
                         if url_key in seen_urls:
                             continue
+
+                    # -------------------------------------------------
+                    # Geographic scope: Finland first, Europe second,
+                    # outside Europe excluded by default. A location
+                    # this module can't confidently classify (blank,
+                    # bare "Remote" with no country) is never excluded
+                    # here - only a confidently-identified non-European
+                    # location is (see app/ai/geo_normalizer.py).
+                    # -------------------------------------------------
+
+                    if is_excluded_by_default(location):
+                        continue
 
                     # -------------------------------------------------
                     # Duplicate check #3:
