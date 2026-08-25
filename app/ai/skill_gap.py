@@ -35,6 +35,8 @@ Two genuinely separate things are computed here, and both matter:
 
 import re
 
+from app.ai.capability_graph import transferable_predecessors
+
 
 # =============================================================
 # Word-boundary matching (self-contained, mirrors the equivalent
@@ -110,6 +112,12 @@ _NICE_TO_HAVE_MARKERS = [
     "not required",
     "optional",
     "beneficial",
+    # Finnish hedge phrasing - "eduksi" (lit. "to [one's] advantage")
+    # and "meriitti" (a merit/plus) are the common ways a Finnish
+    # posting marks a skill as nice-to-have rather than required, e.g.
+    # "verkko-osaaminen on eduksi" (networking is an advantage/plus).
+    "eduksi",
+    "meriitti",
 ]
 
 
@@ -122,6 +130,74 @@ def _split_chunks(text):
 def _chunk_is_nice_to_have(chunk):
     lowered = chunk.lower()
     return any(marker in lowered for marker in _NICE_TO_HAVE_MARKERS)
+
+
+# Real postings very often hedge a whole *section* rather than a single
+# sentence - e.g. a "Bonus points if you also:" heading followed by a
+# bulleted list where none of the individual bullets repeat a hedge
+# word themselves. Per-chunk-only detection (_chunk_is_nice_to_have)
+# misses every bullet in that case and over-classifies them as
+# required. Confirmed against a real posting (Hoxhunt's "Security
+# Engineer, SecOps", fetched live): "Bonus points if you also:" is
+# followed by 8 bullet lines, none containing a hedge word on their own.
+_NICE_TO_HAVE_SECTION_HEADERS = [
+    "bonus points",
+    "nice to have",
+    "nice-to-have",
+    "preferred qualifications",
+    "good to have",
+]
+
+_BULLET_PREFIXES = ("-", "*", "•", "●", "‣", "◦")
+
+
+def _is_bullet_line(chunk):
+    return chunk.strip().startswith(_BULLET_PREFIXES)
+
+
+def _chunk_nice_to_have_flags(chunks):
+    """
+    Sequential pass mirroring how a human reads a posting: a heading
+    line (not a bullet) either opens a nice-to-have section or closes
+    one, and bullet lines inherit whatever section they fall under.
+    This only extends section-level state across *consecutive bullet
+    lines* - a plain prose paragraph always resets it - so it can't
+    silently leak "nice to have" status across an entire unrelated
+    section further down the posting.
+    """
+
+    flags = []
+    in_nice_section = False
+
+    for chunk in chunks:
+
+        stripped = chunk.strip()
+
+        # A bullet line always inherits the current section. A
+        # non-bullet line *starting with a lowercase letter* is, in
+        # practice, a hard-wrapped continuation of the previous
+        # line/bullet rather than a new heading (real headers and new
+        # sentences start capitalized) - confirmed against real Ashby
+        # plain-text descriptions, which hard-wrap mid-sentence without
+        # regard for bullet boundaries. Only a genuine new heading line
+        # (not a bullet, not a lowercase continuation) re-evaluates
+        # whether a nice-to-have section is starting or ending.
+        is_continuation = bool(stripped) and stripped[0].islower()
+
+        if not _is_bullet_line(chunk) and not is_continuation:
+
+            lowered = chunk.lower()
+
+            in_nice_section = any(
+                header in lowered
+                for header in _NICE_TO_HAVE_SECTION_HEADERS
+            )
+
+        flags.append(
+            in_nice_section or _chunk_is_nice_to_have(chunk)
+        )
+
+    return flags
 
 
 # =============================================================
@@ -185,6 +261,17 @@ SKILL_CATALOG = {
         "aliases": [
             "networking", "tcp/ip", "routing", "switching",
             "network administration",
+            # Finnish: many Jobly/Duunitori postings are written in
+            # Finnish. "verkko" (network) and "verkko-osaaminen"
+            # (networking expertise - the hyphen is normalized to a
+            # space by _normalize(), same as the space-separated form)
+            # appear as literal, unfused words/phrases in real postings
+            # audited against this catalog. See the module docstring's
+            # note on Finnish coverage limits for why heavily
+            # inflected/fused Finnish compounds (e.g.
+            # "verkko-osaamista") aren't reliably caught by simple
+            # word-boundary matching.
+            "verkko", "verkko osaaminen",
         ],
         "certifications": [
             {
@@ -401,7 +488,7 @@ SKILL_CATALOG = {
     },
     "terraform": {
         "display": "Terraform",
-        "aliases": ["terraform", "infrastructure as code", "iac"],
+        "aliases": ["terraform"],
         "certifications": [
             {
                 "name": "HashiCorp Certified: Terraform Associate",
@@ -699,6 +786,10 @@ SKILL_CATALOG = {
         "aliases": [
             "vulnerability management", "vulnerability assessment",
             "vulnerability scanning",
+            # Finnish: "haavoittuvuuksien hallinta" (vulnerability
+            # management) - the base word "haavoittuvuus"
+            # (vulnerability) also matches on its own.
+            "haavoittuvuus", "haavoittuvuuksien hallinta",
         ],
         "certifications": [
             {
@@ -829,7 +920,10 @@ SKILL_CATALOG = {
     },
     "active directory": {
         "display": "Active Directory",
-        "aliases": ["active directory"],
+        "aliases": [
+            "active directory", "entra id", "azure ad",
+            "azure active directory", "ms ad",
+        ],
         "certifications": [
             {
                 "name": (
@@ -1025,6 +1119,14 @@ SKILL_CATALOG = {
         "aliases": [
             "gdpr", "iso 27001", "compliance",
             "governance risk and compliance", "grc",
+            "nis2", "nis 2", "nis2 directive",
+            # Finnish: "vaatimustenmukaisuus" (compliance) as an
+            # uncompounded word - a compound form like
+            # "vaatimustenmukaisuushallinta" (compliance management,
+            # written as one fused word) won't match, since it's a
+            # different literal token; see the networking entry's
+            # comment on this same limitation.
+            "vaatimustenmukaisuus",
         ],
         "certifications": [
             {
@@ -1117,6 +1219,429 @@ SKILL_CATALOG = {
         ],
         "effort_days": (5, 14),
     },
+    "soc 2": {
+        "display": "SOC 2",
+        "aliases": ["soc 2", "soc2"],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "AICPA & CIMA",
+                "name": (
+                    "SOC 2 Trust Services Criteria overview "
+                    "(aicpa-cima.com, official, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "SOC 2 control-mapping exercise",
+                "description": (
+                    "Pick a small sample org/app and map its existing "
+                    "controls (access reviews, change management, "
+                    "logging) against the SOC 2 Trust Services "
+                    "Criteria, documenting the gaps."
+                ),
+            },
+        ],
+        "effort_days": (5, 10),
+    },
+    "iso 42001": {
+        "display": "ISO/IEC 42001 (AI Management)",
+        "aliases": ["iso 42001", "iso/iec 42001", "ai management system"],
+        "certifications": [
+            {
+                "name": "ISO/IEC 42001 Foundation",
+                "why": (
+                    "Entry-level certification on the ISO 42001 AI "
+                    "management system standard."
+                ),
+            },
+        ],
+        "courses": [
+            {
+                "provider": "ISO",
+                "name": (
+                    "ISO/IEC 42001:2023 standard overview "
+                    "(iso.org, official)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "AI governance mini-framework",
+                "description": (
+                    "Draft a short AI-system risk/governance checklist "
+                    "for a sample ML feature, mapped to ISO 42001's "
+                    "core management-system clauses."
+                ),
+            },
+        ],
+        "effort_days": (5, 10),
+    },
+    "hipaa": {
+        "display": "HIPAA",
+        "aliases": [
+            "hipaa",
+            "health insurance portability and accountability act",
+        ],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "U.S. Dept. of Health & Human Services",
+                "name": (
+                    "HIPAA Security Rule official guidance "
+                    "(hhs.gov, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "HIPAA safeguards mapping",
+                "description": (
+                    "Pick a sample healthcare-adjacent scenario and "
+                    "map its technical safeguards (access control, "
+                    "audit logging, encryption) against the HIPAA "
+                    "Security Rule."
+                ),
+            },
+        ],
+        "effort_days": (3, 7),
+    },
+    "nist csf": {
+        "display": "NIST CSF",
+        "aliases": ["nist csf", "nist cybersecurity framework"],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "NIST",
+                "name": (
+                    "NIST Cybersecurity Framework (CSF) 2.0 official "
+                    "resources (nist.gov, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "NIST CSF gap self-assessment",
+                "description": (
+                    "Score a sample small-org environment against "
+                    "NIST CSF 2.0's five functions (Identify, Protect, "
+                    "Detect, Respond, Recover) and document the gaps."
+                ),
+            },
+        ],
+        "effort_days": (5, 10),
+    },
+    "cis benchmarks": {
+        "display": "CIS Benchmarks",
+        "aliases": ["cis benchmarks", "cis controls"],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "CIS (Center for Internet Security)",
+                "name": (
+                    "CIS Benchmarks and CIS Controls official "
+                    "documentation (cisecurity.org, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "CIS Benchmark hardening pass",
+                "description": (
+                    "Apply a CIS Benchmark (e.g. for Linux or a cloud "
+                    "provider) to a lab VM/account and document which "
+                    "controls were applied vs. skipped and why."
+                ),
+            },
+        ],
+        "effort_days": (3, 7),
+    },
+    "sast": {
+        "display": "SAST (Static Application Security Testing)",
+        "aliases": [
+            "sast", "static application security testing",
+            "static analysis security testing",
+        ],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "OWASP",
+                "name": (
+                    "OWASP Static Application Security Testing "
+                    "guidance (owasp.org, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "SAST scan on a sample repo",
+                "description": (
+                    "Run a free SAST tool (e.g. Semgrep or Bandit for "
+                    "Python) against an existing repo, triage the "
+                    "findings, and document which were fixed vs. "
+                    "false positives."
+                ),
+            },
+        ],
+        "effort_days": (2, 5),
+    },
+    "dast": {
+        "display": "DAST (Dynamic Application Security Testing)",
+        "aliases": ["dast", "dynamic application security testing"],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "OWASP",
+                "name": (
+                    "OWASP Zed Attack Proxy (ZAP) getting-started "
+                    "guide (owasp.org, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "DAST scan against a lab app",
+                "description": (
+                    "Run OWASP ZAP against a deliberately vulnerable "
+                    "practice app (e.g. OWASP Juice Shop) and document "
+                    "the findings and remediation."
+                ),
+            },
+        ],
+        "effort_days": (2, 5),
+    },
+    "sca": {
+        "display": "SCA (Software Composition Analysis)",
+        "aliases": [
+            "sca", "software composition analysis", "dependency scanning",
+        ],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "OWASP",
+                "name": (
+                    "OWASP Dependency-Check getting-started guide "
+                    "(owasp.org, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "Dependency vulnerability audit",
+                "description": (
+                    "Run a free SCA tool (e.g. OWASP Dependency-Check, "
+                    "npm audit, or pip-audit) against an existing "
+                    "project's dependencies and document/remediate the "
+                    "findings."
+                ),
+            },
+        ],
+        "effort_days": (1, 3),
+    },
+    "secrets management": {
+        "display": "Secrets Management",
+        "aliases": [
+            "secrets management", "secrets scanning", "secret scanning",
+            "credential scanning",
+        ],
+        "certifications": [
+            {
+                "name": "HashiCorp Certified: Vault Associate",
+                "why": (
+                    "Vendor certification covering secrets-management "
+                    "concepts and practical Vault usage."
+                ),
+            },
+        ],
+        "courses": [
+            {
+                "provider": "HashiCorp Developer",
+                "name": (
+                    "Vault 'Get Started' tutorials "
+                    "(developer.hashicorp.com, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "Secrets-scanning pipeline check",
+                "description": (
+                    "Add a free secrets-scanning tool (e.g. Gitleaks "
+                    "or TruffleHog) to an existing repo's CI pipeline "
+                    "and fix any findings."
+                ),
+            },
+        ],
+        "effort_days": (2, 5),
+    },
+    "infrastructure as code": {
+        "display": "Infrastructure as Code",
+        "aliases": ["infrastructure as code", "iac"],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "HashiCorp Developer",
+                "name": (
+                    "'What is Infrastructure as Code?' overview "
+                    "(developer.hashicorp.com, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "IaC-provisioned lab environment",
+                "description": (
+                    "Provision a small environment using any IaC tool "
+                    "(Terraform, Pulumi, or CloudFormation) entirely "
+                    "from code, and publish it on GitHub with a "
+                    "README."
+                ),
+            },
+        ],
+        "effort_days": (5, 10),
+    },
+    "threat modeling": {
+        "display": "Threat Modeling",
+        "aliases": ["threat modeling", "threat modelling"],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "OWASP",
+                "name": (
+                    "OWASP Threat Modeling guidance and Threat Dragon "
+                    "tool (owasp.org, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "STRIDE threat model for a sample app",
+                "description": (
+                    "Produce a STRIDE-based threat model (diagram + "
+                    "writeup) for a small sample application's "
+                    "architecture."
+                ),
+            },
+        ],
+        "effort_days": (3, 5),
+    },
+    "detection engineering": {
+        "display": "Detection Engineering",
+        "aliases": [
+            "detection engineering", "detection as code",
+            "detection-as-code",
+        ],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "Elastic",
+                "name": (
+                    "Elastic Security detection-rules getting-started "
+                    "guide (free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "Detection rule from a known technique",
+                "description": (
+                    "Write and test a detection rule (Sigma, Elastic, "
+                    "or Splunk) for a specific MITRE ATT&CK technique "
+                    "against sample log data."
+                ),
+            },
+        ],
+        "effort_days": (3, 7),
+    },
+    "go": {
+        "display": "Go",
+        # "go" is a common English word, so this alias carries a known
+        # false-positive risk on English-language postings (matched
+        # against the profile.py-inspired precedent that "iam" carries
+        # a similar, smaller risk). Kept anyway because Phase 3's own
+        # example ("Python, Go or JavaScript") specifically needs it,
+        # and a curated-catalog matcher trades some precision for
+        # recall by design - see the module docstring.
+        "aliases": ["go", "golang"],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "Go team / golang.org",
+                "name": "'A Tour of Go' official interactive tutorial (go.dev, free)",
+            },
+        ],
+        "projects": [
+            {
+                "title": "CLI tool in Go",
+                "description": (
+                    "Write a small command-line tool in Go (e.g. a "
+                    "log parser or file watcher) and publish it with "
+                    "tests on GitHub."
+                ),
+            },
+        ],
+        "effort_days": (3, 7),
+    },
+    "javascript": {
+        "display": "JavaScript",
+        "aliases": ["javascript", "js", "node.js", "nodejs"],
+        "certifications": [],
+        "courses": [
+            {
+                "provider": "MDN Web Docs (Mozilla)",
+                "name": (
+                    "JavaScript guide and tutorial "
+                    "(developer.mozilla.org, free)"
+                ),
+            },
+        ],
+        "projects": [
+            {
+                "title": "Small Node.js automation script",
+                "description": (
+                    "Write a small Node.js script that automates a "
+                    "repetitive task (e.g. calling an API and "
+                    "summarizing results) and publish it on GitHub."
+                ),
+            },
+        ],
+        "effort_days": (3, 7),
+    },
+    "windows": {
+        "display": "Windows / Microsoft 365",
+        "aliases": [
+            "windows", "microsoft windows", "m365", "microsoft 365",
+            "office 365",
+        ],
+        "certifications": [
+            {
+                "name": "Microsoft 365 Certified: Fundamentals (MS-900)",
+                "why": (
+                    "Microsoft's own foundational certification "
+                    "covering Microsoft 365 services and "
+                    "administration basics."
+                ),
+            },
+        ],
+        "courses": [
+            {
+                "provider": "Microsoft Learn",
+                "name": "MS-900 Microsoft 365 Fundamentals learning path (free)",
+            },
+        ],
+        "projects": [
+            {
+                "title": "M365 admin-center walkthrough",
+                "description": (
+                    "Set up a Microsoft 365 developer tenant (free), "
+                    "configure basic user/security policies, and "
+                    "document the admin-center settings used."
+                ),
+            },
+        ],
+        "effort_days": (3, 7),
+    },
 }
 
 
@@ -1168,9 +1693,30 @@ def _candidate_text(profile):
 # Main entry point
 # =============================================================
 
-def analyze_skill_gap(profile, job):
+def analyze_skill_gap(profile, job, existing_projects=None):
     """
     Compare a single job's requirements against the candidate profile.
+
+    ``existing_projects``: the user's tracked projects (see
+    app.services.project_service.ProjectService.get_all()), optional so
+    this stays usable/testable without the project-tracking layer.
+    Used for two things, both about *continuity* rather than starting
+    fresh every time (see docs/PRODUCT_VISION.md and
+    app/ai/career_profile.py, which the same project list also feeds):
+
+    1. A skill backed by a Verified project counts as real evidence
+       here too - not just in app/ai/cv_strength.py, which already did
+       this. Without this, a candidate who built and verified a
+       Kubernetes project that isn't yet reflected in their profile's
+       skills/experience text would still see "Kubernetes: missing" on
+       this page, contradicting their own CV-Strength page.
+    2. A skill with a Planned/In Progress/Completed (not yet Verified)
+       project already exists gets `recommendation.existing_project`
+       instead of another "Start this project" prompt for a *second*
+       project on the same skill - app/web/routes.py's
+       `_start_project_from_catalog()` isn't idempotent per skill_key,
+       so without this a user could otherwise create duplicate tracked
+       projects for the same gap.
 
     Returns a dict shaped for direct template rendering:
 
@@ -1191,7 +1737,23 @@ def analyze_skill_gap(profile, job):
     """
 
     profile = profile or {}
+    existing_projects = existing_projects or []
+
+    verified_skill_keys = {
+        project["skill_key"]
+        for project in existing_projects
+        if project.get("status") == "Verified" and project.get("skill_key")
+    }
+
+    in_progress_project_by_key = {
+        project["skill_key"]: project
+        for project in existing_projects
+        if project.get("status") in ("Planned", "In Progress", "Completed")
+        and project.get("skill_key")
+    }
+
     job_chunks = _split_chunks(_job_text(job))
+    job_chunk_is_nice = _chunk_nice_to_have_flags(job_chunks)
 
     required_skills = []
     nice_to_have_skills = []
@@ -1200,8 +1762,8 @@ def analyze_skill_gap(profile, job):
         aliases = entry["aliases"]
 
         required_hit = any(
-            _contains_any(chunk, aliases) and not _chunk_is_nice_to_have(chunk)
-            for chunk in job_chunks
+            _contains_any(chunk, aliases) and not is_nice
+            for chunk, is_nice in zip(job_chunks, job_chunk_is_nice)
         )
 
         if required_hit:
@@ -1209,8 +1771,8 @@ def analyze_skill_gap(profile, job):
             continue
 
         nice_hit = any(
-            _contains_any(chunk, aliases) and _chunk_is_nice_to_have(chunk)
-            for chunk in job_chunks
+            _contains_any(chunk, aliases) and is_nice
+            for chunk, is_nice in zip(job_chunks, job_chunk_is_nice)
         )
 
         if nice_hit:
@@ -1223,12 +1785,22 @@ def analyze_skill_gap(profile, job):
     def build_entry(key, priority):
         entry = SKILL_CATALOG[key]
         aliases = entry["aliases"]
-        has_skill = _contains_any(candidate_text, aliases)
+        # A Verified project is real, produced evidence - it counts
+        # even if the profile's own skills/experience/certifications
+        # text hasn't caught up to mention it yet (same precedent
+        # app/ai/cv_strength.py already sets).
+        verified_by_project = key in verified_skill_keys
+        has_skill = verified_by_project or _contains_any(candidate_text, aliases)
 
         result = {
             "key": key,
             "skill": entry["display"],
             "priority": priority,
+            # "status" stays exactly "matched"/"missing" - this is the
+            # binary contract app/web/routes.py's interview-prep gate
+            # and skill_gap.html's Jinja both already depend on.
+            # "evidence" (below) carries the richer classification
+            # additively, without changing what this field means.
             "status": "matched" if has_skill else "missing",
         }
 
@@ -1248,6 +1820,47 @@ def analyze_skill_gap(profile, job):
                     "isn't listed in your skills - consider adding it "
                     "explicitly."
                 )
+
+            if verified_by_project:
+                result["evidence"] = {
+                    "level": "demonstrated",
+                    "detail": (
+                        f"{entry['display']} is backed by a Verified "
+                        "practical project - real, produced evidence. "
+                        "See your Projects page."
+                    ),
+                }
+            elif in_skills_list and in_experience:
+                result["evidence"] = {
+                    "level": "demonstrated",
+                    "detail": (
+                        f"{entry['display']} is demonstrated in both your "
+                        "skills list and your experience."
+                    ),
+                }
+            elif "cv_note" in result:
+                result["evidence"] = {
+                    "level": "weak_evidence",
+                    "detail": result["cv_note"],
+                }
+            else:
+                # Matched only via certifications/summary text - never
+                # false, but thinner than an actual skills-list or
+                # experience mention. Deliberately not folded into
+                # cv_note/cv_improvements: that field already has
+                # tested behavior for the skills-list/experience cases
+                # above, and this is a genuinely new, softer signal.
+                result["evidence"] = {
+                    "level": "weak_evidence",
+                    "detail": (
+                        f"{entry['display']} is mentioned in your "
+                        "certifications or summary, but not in your "
+                        "skills list or an experience entry - consider "
+                        "adding it explicitly if you have relevant "
+                        "experience."
+                    ),
+                }
+
         else:
             result["recommendation"] = {
                 "certifications": entry.get("certifications", []),
@@ -1256,6 +1869,58 @@ def analyze_skill_gap(profile, job):
                 "effort_days": entry.get("effort_days"),
                 "verified": True,
             }
+
+            existing_project = in_progress_project_by_key.get(key)
+
+            if existing_project:
+                # Continuity over starting fresh: a project for this
+                # exact skill is already Planned/In Progress/Completed
+                # - point at continuing it instead of offering another
+                # "Start this project" prompt that would create a
+                # second, duplicate tracked project for the same gap.
+                result["recommendation"]["existing_project"] = {
+                    "id": existing_project["id"],
+                    "title": existing_project["title"],
+                    "status": existing_project["status"],
+                }
+
+            related_key = next(
+                (
+                    related for related in transferable_predecessors(key)
+                    if _contains_any(
+                        candidate_text,
+                        SKILL_CATALOG[related]["aliases"],
+                    )
+                ),
+                None,
+            )
+
+            if related_key:
+                related_display = SKILL_CATALOG[related_key]["display"]
+                result["evidence"] = {
+                    "level": "related_transferable",
+                    "detail": (
+                        f"Not directly demonstrated, but your "
+                        f"{related_display} experience is a meaningful "
+                        "head start toward this."
+                    ),
+                }
+                result["recommendation"]["priority"] = "high"
+                result["recommendation"]["career_value"] = "high"
+            else:
+                result["evidence"] = {
+                    "level": "missing",
+                    "detail": (
+                        f"{entry['display']} isn't demonstrated anywhere "
+                        "in your profile yet."
+                    ),
+                }
+                result["recommendation"]["priority"] = (
+                    "critical" if priority == "required" else "medium"
+                )
+                result["recommendation"]["career_value"] = (
+                    "high" if priority == "required" else "medium"
+                )
 
         return result
 

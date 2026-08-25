@@ -379,3 +379,337 @@ def test_trailing_sentence_punctuation_does_not_hide_a_skill_mention():
 
     assert terraform is not None
     assert terraform["status"] == "missing"
+
+
+# =============================================================
+# Career Fit & Growth rewrite regression tests
+# =============================================================
+
+def test_compliance_framework_catalog_entries_are_detected():
+    """
+    Phase 10's Hoxhunt-style regression case explicitly needs SOC 2,
+    ISO 27001, and NIS2 to be recognized - previously entirely absent
+    or only reachable through unrelated aliases.
+    """
+
+    job = FakeJob(
+        description=(
+            "Requirements: familiarity with SOC 2, ISO 27001 and NIS2 "
+            "is required for this role."
+        ),
+    )
+
+    analysis = analyze_skill_gap({"skills": []}, job)
+    required_names = {item["skill"] for item in analysis["required"]}
+
+    assert "SOC 2" in required_names
+    assert "Compliance & Governance" in required_names  # ISO 27001 + NIS2
+
+
+def test_secure_development_tooling_catalog_entries_are_detected():
+    job = FakeJob(
+        description=(
+            "Requirements: strengthen the secure development lifecycle "
+            "with SAST, DAST, SCA, and secrets scanning across our "
+            "pipelines."
+        ),
+    )
+
+    analysis = analyze_skill_gap({"skills": []}, job)
+    required_names = {item["skill"] for item in analysis["required"]}
+
+    assert "SAST (Static Application Security Testing)" in required_names
+    assert "DAST (Dynamic Application Security Testing)" in required_names
+    assert "SCA (Software Composition Analysis)" in required_names
+    assert "Secrets Management" in required_names
+
+
+def test_finnish_language_posting_detects_real_requirements():
+    """
+    Regression test for the audited root cause of "No required skills
+    detected" on real Jobly/Duunitori postings: a Finnish-language
+    posting that clearly states Windows/M365/Entra ID and networking
+    requirements previously detected zero skills at all, because
+    SKILL_CATALOG was English-only. Phrasing below mirrors real audited
+    posting text (job id 11 in data/careerpilot.db), not invented
+    wording.
+    """
+
+    job = FakeJob(
+        description=(
+            "Edellytämme hyvää osaamista Microsoft Windowsista, "
+            "M365:sta ja MS AD/Entra ID:sta sekä loppukäyttäjälaitteiden "
+            "tietoturvasta ja vähintään kahta vuotta tietoturvan "
+            "hallintakokemusta. Verkko-osaaminen on eduksi."
+        ),
+    )
+
+    analysis = analyze_skill_gap({"skills": []}, job)
+    required_names = {item["skill"] for item in analysis["required"]}
+    nice_names = {item["skill"] for item in analysis["nice_to_have"]}
+
+    assert not analysis["summary"]["no_requirements_detected"]
+    assert "Windows / Microsoft 365" in required_names
+    assert "Active Directory" in required_names
+    # "Verkko-osaaminen on eduksi" (networking is a plus) is explicitly
+    # hedged with the Finnish nice-to-have marker "eduksi" - it must not
+    # land in required just because it's the only Finnish networking
+    # mention.
+    assert "Networking" in nice_names
+    assert "Networking" not in required_names
+
+
+def test_bonus_section_bullets_inherit_nice_to_have_without_their_own_hedge_word():
+    """
+    Regression test for the section-header fix: a "Bonus points if you
+    also:" heading followed by a bulleted list, where individual bullets
+    don't repeat a hedge word themselves, must still classify those
+    bullets as nice-to-have - not required. Phrasing mirrors the real,
+    live-fetched Hoxhunt posting structure (see
+    tests/fixtures/hoxhunt_secops_description.txt), reduced to a single
+    skill that (unlike the real posting) doesn't also appear elsewhere
+    as a genuine requirement.
+    """
+
+    job = FakeJob(
+        description=(
+            "Requirements: strong Python and AWS experience.\n"
+            "Bonus points if you also:\n"
+            " - Have hands-on Ansible experience.\n"
+            " - Enjoy working with distributed systems.\n"
+        ),
+    )
+
+    analysis = analyze_skill_gap({"skills": []}, job)
+    required_names = {item["skill"] for item in analysis["required"]}
+    nice_names = {item["skill"] for item in analysis["nice_to_have"]}
+
+    assert "Python" in required_names
+    assert "AWS" in required_names
+    assert "Ansible" in nice_names
+    assert "Ansible" not in required_names
+
+
+def test_evidence_level_demonstrated_when_matched_in_skills_and_experience():
+    profile = {
+        "skills": ["Splunk"],
+        "experience": [
+            {"title": "SOC Trainee", "description": "Used Splunk daily."}
+        ],
+        "certifications": [],
+    }
+    job = FakeJob(description="Requirements: Splunk experience required.")
+
+    analysis = analyze_skill_gap(profile, job)
+    splunk = _entry(analysis, "Splunk")
+
+    assert splunk["evidence"]["level"] == "demonstrated"
+
+
+def test_evidence_level_weak_evidence_when_only_in_skills_list():
+    profile = {
+        "skills": ["Splunk"],
+        "experience": [{"title": "Helpdesk", "description": "Installed OSes."}],
+        "certifications": [],
+    }
+    job = FakeJob(description="Requirements: Splunk experience required.")
+
+    analysis = analyze_skill_gap(profile, job)
+    splunk = _entry(analysis, "Splunk")
+
+    assert splunk["evidence"]["level"] == "weak_evidence"
+    assert splunk["evidence"]["detail"] == splunk["cv_note"]
+
+
+def test_evidence_level_related_transferable_via_capability_graph():
+    """
+    A profile with real Docker evidence but no Kubernetes mention should
+    be flagged as "related_transferable" for a Kubernetes requirement,
+    not a flat "missing" - Docker is a genuine, meaningful head start
+    toward Kubernetes (app/ai/capability_graph.py).
+    """
+
+    profile = {
+        "skills": ["Docker"],
+        "experience": [
+            {"title": "Platform Engineer", "description": "Built Docker images."}
+        ],
+        "certifications": [],
+    }
+    job = FakeJob(description="Requirements: Kubernetes experience required.")
+
+    analysis = analyze_skill_gap(profile, job)
+    kubernetes = _entry(analysis, "Kubernetes")
+
+    assert kubernetes["status"] == "missing"
+    assert kubernetes["evidence"]["level"] == "related_transferable"
+    assert "Docker" in kubernetes["evidence"]["detail"]
+    assert kubernetes["recommendation"]["priority"] == "high"
+
+
+def test_evidence_level_missing_with_no_related_evidence():
+    job = FakeJob(description="Requirements: Kubernetes experience required.")
+
+    analysis = analyze_skill_gap({"skills": []}, job)
+    kubernetes = _entry(analysis, "Kubernetes")
+
+    assert kubernetes["status"] == "missing"
+    assert kubernetes["evidence"]["level"] == "missing"
+    assert kubernetes["recommendation"]["priority"] == "critical"
+
+
+def test_status_field_stays_binary_matched_or_missing():
+    """
+    Regression guard: app/web/routes.py's interview-prep gate
+    (`entry["status"] == "missing"`) and skill_gap.html's Jinja both
+    depend on "status" staying exactly "matched"/"missing" - the richer
+    evidence classification must be purely additive via the "evidence"
+    field, never replacing "status".
+    """
+
+    job = FakeJob(
+        description=(
+            "Requirements: Kubernetes and Splunk experience required."
+        ),
+    )
+    profile = {
+        "skills": ["Splunk"],
+        "experience": [{"title": "SOC", "description": "Used Splunk."}],
+        "certifications": [],
+    }
+
+    analysis = analyze_skill_gap(profile, job)
+
+    for item in analysis["required"] + analysis["nice_to_have"]:
+        assert item["status"] in ("matched", "missing")
+
+
+def test_hoxhunt_secops_posting_matches_real_profile_strengths_and_gaps(
+    hoxhunt_secops_description,
+):
+    """
+    End-to-end regression test using a real, live-fetched job posting
+    (not hand-written) and the actual profile described in
+    profiles/profile.json, per the Phase 10 test case: known strengths
+    must be matched, and known gaps (compliance frameworks, secure-
+    development tooling) must be detected as real requirements rather
+    than silently missed.
+    """
+
+    profile = {
+        "skills": [
+            "Cyber Security", "Linux", "Networking", "Python", "Docker",
+            "Kubernetes", "AWS", "Azure", "Google Cloud", "Splunk",
+            "SIEM", "Incident Response", "Firewall", "IDS/IPS", "Git",
+            "CI/CD",
+        ],
+        "experience": [
+            {
+                "title": "Cybersecurity Trainee",
+                "description": (
+                    "Linux, networking, security monitoring, "
+                    "penetration testing."
+                ),
+            },
+            {
+                "title": "Firewall & IDS Configuration",
+                "description": (
+                    "Configured firewall and IDS, monitored network "
+                    "traffic, analyzed logs, investigated security "
+                    "events."
+                ),
+            },
+        ],
+        "certifications": [
+            "Ethical Hacker", "CCNA", "Cloud Platforms", "Cyber Security",
+        ],
+    }
+
+    job = FakeJob(
+        title="Security Engineer, SecOps",
+        description=hoxhunt_secops_description,
+        company="Hoxhunt",
+    )
+
+    analysis = analyze_skill_gap(profile, job)
+    required_matched = {
+        item["skill"] for item in analysis["required"]
+        if item["status"] == "matched"
+    }
+    required_missing = {
+        item["skill"] for item in analysis["required"]
+        if item["status"] == "missing"
+    }
+
+    for skill in ("Python", "Docker", "Kubernetes", "AWS", "SIEM"):
+        assert skill in required_matched
+
+    for skill in (
+        "Vulnerability Management", "IAM",
+        "SAST (Static Application Security Testing)",
+    ):
+        assert skill in required_missing
+
+    assert analysis["summary"]["readiness_percent"] > 0
+    assert not analysis["summary"]["no_requirements_detected"]
+
+
+# =============================================================
+# Continuity: existing project tracking (avoid re-recommending
+# something the user has already started or verified)
+# =============================================================
+
+def test_verified_project_counts_as_matched_even_without_profile_text():
+    """
+    Mirrors app/ai/cv_strength.py's existing precedent: a Verified
+    project is real, produced evidence and must count here too, even
+    if the profile's own skills/experience/certifications text hasn't
+    caught up to mention it yet.
+    """
+
+    job = FakeJob(description="Requirements: Kubernetes experience required.")
+    projects = [
+        {"id": 1, "skill_key": "kubernetes", "skill_display": "Kubernetes",
+         "title": "K8s lab", "status": "Verified"},
+    ]
+
+    analysis = analyze_skill_gap({"skills": []}, job, existing_projects=projects)
+    kubernetes = _entry(analysis, "Kubernetes")
+
+    assert kubernetes["status"] == "matched"
+    assert kubernetes["evidence"]["level"] == "demonstrated"
+    assert "Verified practical project" in kubernetes["evidence"]["detail"]
+
+
+def test_in_progress_project_is_offered_as_continuation_not_a_new_start():
+    """
+    Regression test: app/web/routes.py's _start_project_from_catalog()
+    is not idempotent per skill_key, so without this a user could click
+    "Start this project" again and create a second, duplicate tracked
+    project for a skill they already started.
+    """
+
+    job = FakeJob(description="Requirements: Kubernetes experience required.")
+    projects = [
+        {"id": 5, "skill_key": "kubernetes", "skill_display": "Kubernetes",
+         "title": "Local cluster deployment", "status": "In Progress"},
+    ]
+
+    analysis = analyze_skill_gap({"skills": []}, job, existing_projects=projects)
+    kubernetes = _entry(analysis, "Kubernetes")
+
+    assert kubernetes["status"] == "missing"
+    assert kubernetes["recommendation"]["existing_project"] == {
+        "id": 5,
+        "title": "Local cluster deployment",
+        "status": "In Progress",
+    }
+
+
+def test_no_existing_project_means_no_continuation_offer():
+    job = FakeJob(description="Requirements: Kubernetes experience required.")
+
+    analysis = analyze_skill_gap({"skills": []}, job, existing_projects=[])
+    kubernetes = _entry(analysis, "Kubernetes")
+
+    assert "existing_project" not in kubernetes["recommendation"]

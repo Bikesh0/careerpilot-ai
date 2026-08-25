@@ -183,6 +183,17 @@
     color:var(--rust);
   }
 
+  .sg-badge-related{
+    background:var(--teal-soft);
+    color:var(--teal);
+  }
+
+  .sg-rec-meta{
+    margin-top:8px;
+    font-size:.78rem;
+    color:var(--muted);
+  }
+
   .sg-cv-note{
     margin-top:10px;
     font-size:.85rem;
@@ -450,13 +461,15 @@
             <span class="sg-item-skill">{{ item.skill }}</span>
             {% if item.status == 'matched' %}
               <span class="sg-badge sg-badge-matched">You have this</span>
+            {% elif item.evidence and item.evidence.level == 'related_transferable' %}
+              <span class="sg-badge sg-badge-related">Related - transferable</span>
             {% else %}
               <span class="sg-badge sg-badge-missing">Gap</span>
             {% endif %}
           </div>
 
-          {% if item.cv_note %}
-            <p class="sg-cv-note">{{ item.cv_note }}</p>
+          {% if item.evidence %}
+            <p class="sg-cv-note">{{ item.evidence.detail }}</p>
           {% endif %}
 
           {% if item.recommendation %}
@@ -510,6 +523,13 @@
               </p>
             {% endif %}
 
+            {% if item.recommendation.priority %}
+              <p class="sg-rec-meta">
+                Priority: {{ item.recommendation.priority|capitalize }}
+                &middot; Career value: {{ item.recommendation.career_value|capitalize }}
+              </p>
+            {% endif %}
+
             {% if job_family and job_family.primary %}
               <p class="sg-rec-meta">
                 This role is classified as {{ job_family.primary.display }} -
@@ -517,7 +537,11 @@
               </p>
             {% endif %}
 
-            {% if item.recommendation.projects %}
+            {% if item.recommendation.existing_project %}
+              <a class="sg-start-project" href="/projects/{{ item.recommendation.existing_project.id }}">
+                Continue your project ({{ item.recommendation.existing_project.status }})
+              </a>
+            {% elif item.recommendation.projects %}
               <a class="sg-start-project" href="/projects/start/{{ job.id }}/{{ item.key }}">
                 Start this project
               </a>
@@ -526,7 +550,16 @@
         </div>
       {% endfor %}
     {% else %}
-      <p class="sg-empty">No required skills detected for this posting.</p>
+      <p class="sg-empty">
+        {% if analysis.summary.no_requirements_detected %}
+          No structured requirements could be reliably extracted from
+          this posting - this can happen with non-English postings or
+          unusual formatting. Worth opening the original listing to
+          check requirements yourself.
+        {% else %}
+          No required skills detected for this posting.
+        {% endif %}
+      </p>
     {% endif %}
   </div>
 
@@ -544,13 +577,15 @@
             <span class="sg-item-skill">{{ item.skill }}</span>
             {% if item.status == 'matched' %}
               <span class="sg-badge sg-badge-matched">You have this</span>
+            {% elif item.evidence and item.evidence.level == 'related_transferable' %}
+              <span class="sg-badge sg-badge-related">Related - transferable</span>
             {% else %}
               <span class="sg-badge sg-badge-missing">Gap</span>
             {% endif %}
           </div>
 
-          {% if item.cv_note %}
-            <p class="sg-cv-note">{{ item.cv_note }}</p>
+          {% if item.evidence %}
+            <p class="sg-cv-note">{{ item.evidence.detail }}</p>
           {% endif %}
 
           {% if item.recommendation %}
@@ -595,6 +630,20 @@
               {% endif %}
             </div>
 
+            {% if item.recommendation.effort_days %}
+              <p class="sg-effort">
+                Rough effort estimate: {{ item.recommendation.effort_days[0] }}-{{ item.recommendation.effort_days[1] }} days
+                for a focused first pass (not a guarantee).
+              </p>
+            {% endif %}
+
+            {% if item.recommendation.priority %}
+              <p class="sg-rec-meta">
+                Priority: {{ item.recommendation.priority|capitalize }}
+                &middot; Career value: {{ item.recommendation.career_value|capitalize }}
+              </p>
+            {% endif %}
+
             {% if job_family and job_family.primary %}
               <p class="sg-rec-meta">
                 This role is classified as {{ job_family.primary.display }} -
@@ -602,7 +651,11 @@
               </p>
             {% endif %}
 
-            {% if item.recommendation.projects %}
+            {% if item.recommendation.existing_project %}
+              <a class="sg-start-project" href="/projects/{{ item.recommendation.existing_project.id }}">
+                Continue your project ({{ item.recommendation.existing_project.status }})
+              </a>
+            {% elif item.recommendation.projects %}
               <a class="sg-start-project" href="/projects/start/{{ job.id }}/{{ item.key }}">
                 Start this project
               </a>
@@ -611,7 +664,16 @@
         </div>
       {% endfor %}
     {% else %}
-      <p class="sg-empty">No nice-to-have skills detected for this posting.</p>
+      <p class="sg-empty">
+        {% if analysis.summary.no_requirements_detected %}
+          No structured requirements could be reliably extracted from
+          this posting - this can happen with non-English postings or
+          unusual formatting. Worth opening the original listing to
+          check requirements yourself.
+        {% else %}
+          No nice-to-have skills detected for this posting.
+        {% endif %}
+      </p>
     {% endif %}
   </div>
 
@@ -629,7 +691,8 @@
           <li>
             <span>
               <strong>{{ item.skill }}</strong>
-              ({{ item.priority.replace('_', ' ') }})
+              ({{ item.priority.replace('_', ' ') }}
+              {%- if item.recommendation.priority %}, {{ item.recommendation.priority }} priority{% endif -%})
               {% if item.recommendation.effort_days %}
                 - ~{{ item.recommendation.effort_days[0] }}-{{ item.recommendation.effort_days[1] }} days
               {% endif %}

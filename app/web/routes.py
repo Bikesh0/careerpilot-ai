@@ -846,7 +846,11 @@ def analyze(job_id):
 
     profile = _load_profile()
 
-    analysis = analyze_skill_gap(profile, job)
+    analysis = analyze_skill_gap(
+        profile,
+        job,
+        existing_projects=ProjectService().get_all(),
+    )
 
     return render_template(
         "skill_gap.html",

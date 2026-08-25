@@ -211,6 +211,34 @@ def test_analyze_route_hides_internal_implementation_jargon(monkeypatch):
     assert "SKILL_CATALOG" not in body
 
 
+def test_analyze_route_gives_an_honest_no_extraction_message_not_a_blank_no_skills_claim(
+    monkeypatch,
+):
+    """
+    Regression test for Phase 6's empty-state fix: when nothing in the
+    curated catalog matched at all (analysis.summary.no_requirements_detected),
+    the page must say extraction didn't find structured requirements -
+    not the flatter, easy-to-misread "No required skills detected for
+    this posting," which reads as "this job asks for nothing."
+    """
+
+    jobs = [
+        make_ranked_job(
+            "https://example.test/jobs/1",
+            title="Front Desk Coordinator",
+            description="Completely unrelated posting text with no catalog terms.",
+        )
+    ]
+    client = _client(monkeypatch, jobs)
+
+    client.get("/")
+    response = client.get("/analyze/0")
+    body = response.get_data(as_text=True)
+
+    assert "could be reliably extracted" in body.lower()
+    assert "No required skills detected for this posting." not in body
+
+
 def test_analyze_route_connects_a_missing_skill_recommendation_to_its_career_family(
     monkeypatch,
 ):
