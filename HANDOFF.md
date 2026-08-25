@@ -2,7 +2,7 @@
 
 ## Last Updated
 
-2026-08-19
+2026-08-25
 
 ## Current branch
 
@@ -24,7 +24,68 @@ tested, and live-verified. Full status, including explicit
 IMPLEMENTED/PARTIAL/PLANNED/BLOCKED/REQUIRES-HUMAN-DECISION labels for
 every step, is in `docs/PRODUCT_VISION.md` - read that first.
 
-## Most recent: employment mission - AI-coached projects, real recommendation paths, UI cleanup
+## Most recent: career-family/career-intelligence session - all six commits landed locally
+
+A multi-part session (2026-08-24/25) evolved CareerPilot toward the
+"career advisor, not just a job matcher" product spec: job-deduplication
+improvements, Finland/Europe/Outside-Europe geographic scope filtering,
+a UI-copy rename ("Skill Gap" -> "Career Fit & Growth") plus an
+Applications empty-state fix, a substantially expanded skill-gap engine
+(catalog growth incl. Finnish aliases, section-aware nice-to-have
+detection, an additive per-skill evidence field, project-continuity
+awareness), and a new career-intelligence layer: an evidence-tier
+Living Career Profile, career-track ranking + job-family classification,
+application readiness, and an ATS/HR/technical-manager "hiring
+perspective" view on `/analyze/<job_id>`. See `docs/CAREER_INTELLIGENCE.md`
+for what each new module does and its explicit non-goals (no new
+external research/scraping - see that doc's "Explicitly out of scope"
+section).
+
+**All six commits are now landed locally on `v2-development`**, each
+individually staged, diff-reviewed, and tested before being committed
+(the same reconstruct/verify/stage/diff-review/test-run process used
+throughout the session), in order:
+
+- `3072417` - Milestone 1: one-sentence career-family connector on a
+  skill-gap recommendation, `/analyze/<job_id>`.
+- `fcf1681` - Commit 1: application tracker column-order bug, Ashby API
+  field name fix (`description` -> `descriptionPlain`), V2's
+  canonical-URL dedup signal.
+- `acc946d` - Commit 2: Finland/Europe/Outside-Europe geographic scope
+  filtering, wired into both V1 and V2.
+- `314e879` - Commit 3: "Skill Gap" -> "Career Fit & Growth" rename,
+  and the Applications page empty-state fix.
+- `464f402` - Commit 4: skill-gap engine expansion (catalog growth incl.
+  Finnish aliases, section-aware nice-to-have detection, additive
+  per-skill `evidence` field, project-continuity awareness, plus the
+  new `app/ai/capability_graph.py`).
+- `ad47892` - Commit 5: the career-intelligence layer
+  (`app/ai/career_profile.py`, `app/ai/career_tracks.py`,
+  `app/ai/application_readiness.py`, `app/ai/hiring_perspective.py`),
+  wired into `/cv-strength`, the dashboard, and `/analyze/<job_id>`.
+
+**Do not reopen Milestone 1 or Commits 1-5** unless a future regression
+actually requires it. See `NEXT_TASKS.md`'s "Priority 0" for the full
+per-commit breakdown.
+
+**Application readiness on `/cv-strength`: closed, not applicable by
+design.** `/cv-strength` is the job-independent Layer 1 page; readiness
+is inherently job-specific. A synthetic average across postings would
+not be grounded in any real job and would conflict with the
+no-fabrication principle - see `NEXT_TASKS.md`'s "Explicitly not planned
+right now". Resolved, not an open question.
+
+**Testing**: real result is **219 passed, 0 failed**, via
+`python -m pytest -q --basetemp=<writable dir>` - see `NEXT_TASKS.md`'s
+"Known environment quirk" for why the bare command shows ~51 spurious
+errors (a pre-existing Windows temp-directory permission issue, not a
+code regression).
+
+**Only remaining working-tree changes are this file and
+`NEXT_TASKS.md` themselves**, both updated to record this final state -
+no source, template, test, or other documentation file is outstanding.
+
+## Prior session: employment mission - AI-coached projects, real recommendation paths, UI cleanup
 
 Asked to make the product genuinely usable end-to-end for its actual
 first user (not just feature-complete), and to investigate a
@@ -236,6 +297,14 @@ testers via a tunnel" section), `PROJECT_STATE.md`, `NEXT_TASKS.md`
 
 ## Verification
 
+**Current (2026-08-25)**: **219 passed, 0 failed**, via
+`python -m pytest -q --basetemp=<writable dir>` - see `NEXT_TASKS.md`'s
+"Known environment quirk" for why the bare command alone shows ~51
+spurious `PermissionError` errors on this machine (pre-existing, not a
+regression).
+
+Prior session's verification (2026-08-19), kept for history:
+
 Test result: **148 passed**, run via:
 ```powershell
 $env:TEMP = "$PWD\.pytest-tmp"; $env:TMP = "$PWD\.pytest-tmp"
@@ -298,16 +367,24 @@ Complete and reviewed for staleness across this session:
   not a multi-turn conversation - each call is independently grounded in
   the project's title/description/notes, with no memory of the
   conversation itself beyond what's already saved to notes.
+- **Application readiness is not shown on `/cv-strength`** - a closed,
+  deliberate decision (job-independent page, job-specific concept), not
+  a gap. See `NEXT_TASKS.md`'s "Explicitly not planned right now".
+- **The 2026-08-24/25 career-intelligence session's six commits are
+  landed locally but not yet pushed** - verify with `git log`/`git
+  status` rather than trusting this line; pushing `v2-development` is
+  the only remaining step. See `NEXT_TASKS.md`'s "Priority 0".
 
 ## Exact next task
 
 Verify `git status`/`git log` directly rather than trusting a written
-claim about push state - this file describes what was built and tested,
-not a live git query. If this batch isn't committed/pushed yet: stage,
-commit with a message describing the employment-mission batch, `git push
-origin v2-development`, then confirm `git status` is clean and local
-HEAD matches `origin/v2-development`, following the same ritual used for
-every prior batch this session.
+claim about commit/push state - this file describes what was built and
+tested, not a live git query. As of this update, the career-family/
+career-intelligence feature split is complete: all six commits
+(`3072417`, `fcf1681`, `acc946d`, `314e879`, `464f402`, `ad47892`) are
+landed locally on `v2-development`. The only remaining step is
+`git push origin v2-development`, then confirm local `HEAD` matches
+`origin/v2-development`.
 
 After that, remaining work is entirely in `NEXT_TASKS.md`, in priority
 order. Priorities 1-4 need a human decision/outreach or are low-urgency

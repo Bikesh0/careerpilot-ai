@@ -1,9 +1,60 @@
 # CareerPilot AI - Next Tasks
 
-Status as of 2026-08-19, after a full audit-and-fix session. See
-`HANDOFF.md` for the detailed session log and `PROJECT_STATE.md` for
-current state. Completed items from the prior version of this file are
-removed rather than left checked - see git history for what they were.
+Status as of 2026-08-25, after a career-family/career-intelligence
+session (see `HANDOFF.md` for the detailed log). Priorities 1-7 below
+are unchanged carryover from the 2026-08-19 audit-and-fix session.
+Completed items from the prior version of this file are removed rather
+than left checked - see git history for what they were.
+
+## Priority 0 - career-family/career-intelligence session: COMPLETE, all six commits landed locally
+
+A 2026-08-24/25 session built job-dedup improvements, Finland/Europe
+geographic filtering, a UI-copy rename + Applications empty-state fix,
+a substantially expanded skill-gap engine, and a new career-intelligence
+layer (career families/tracks, an evidence-tier Living Career Profile,
+application readiness, ATS/HR/technical-manager hiring perspective on
+`/analyze/<job_id>`). Everything is implemented, tested (219 passed, see
+"Known environment quirk" below), and all six commits are now landed
+locally on `v2-development`, in order:
+
+- `3072417` - Milestone 1: one-sentence career-family connector on a
+  skill-gap recommendation, `/analyze/<job_id>`.
+- `fcf1681` - Commit 1: application tracker column-order bug
+  (`SELECT *` -> named columns, schema-drift protection), Ashby API
+  field name fix (`description` -> `descriptionPlain`), V2's
+  canonical-URL dedup signal (`app/search/v2/dedupe.py`/`job.py`).
+- `acc946d` - Commit 2: Finland/Europe/Outside-Europe geographic scope
+  filtering (`app/ai/geo_normalizer.py`), wired into both V1
+  (`app/search/manager.py`) and V2 (`app/web/routes.py::_search_jobs`).
+- `314e879` - Commit 3: "Skill Gap" -> "Career Fit & Growth" rename,
+  and the Applications page empty-state fix.
+- `464f402` - Commit 4: skill-gap engine expansion -
+  `app/ai/skill_gap.py`'s catalog growth (incl. Finnish aliases),
+  section-aware nice-to-have detection, the additive per-skill
+  `evidence` field, project-continuity awareness, plus the new
+  `app/ai/capability_graph.py`.
+- `ad47892` - Commit 5: the career-intelligence layer -
+  `app/ai/career_profile.py` (evidence-tier profile),
+  `app/ai/career_tracks.py` (track ranking + job-family
+  classification), `app/ai/application_readiness.py`,
+  `app/ai/hiring_perspective.py` (ATS/HR/technical-manager view),
+  wired into `/cv-strength`, the dashboard, and `/analyze/<job_id>`.
+  See `docs/CAREER_INTELLIGENCE.md`.
+
+**Do not reopen Milestone 1 or Commits 1-5** unless a future regression
+actually requires it. Only remaining operational step: `git push origin
+v2-development`, then confirm local `HEAD` matches
+`origin/v2-development`.
+
+## Known environment quirk - Windows pytest temp-directory permission
+
+Bare `python -m pytest -q` currently errors on ~51 tests with
+`PermissionError: [WinError 5] Access is denied:
+'...\AppData\Local\Temp\pytest-of-terry'` - a pre-existing Windows
+temp-directory permission issue, unrelated to any code in this repo and
+not a regression. Use a writable `--basetemp` for the real result:
+`python -m pytest -q --basetemp=<writable dir>`. Current real result:
+**219 passed, 0 failed**.
 
 ## Priority 1 - Source coverage: Duunitori (disabled), Tyomarkkinatori, Work in Finland
 
@@ -197,3 +248,11 @@ Still open, genuinely lower priority now that the main gap is closed:
 - Gamification (streaks, badges, daily-pressure mechanics), bulk
   auto-apply, a native mobile app - explicitly out of scope per the
   product spec's "do not overbuild" section.
+- Application readiness on `/cv-strength` - closed, not applicable by
+  design: `/cv-strength` is the job-independent Layer 1 page, while
+  application readiness (`app/ai/application_readiness.py`) is
+  inherently job-specific (a match-score-driven "should I apply to this
+  one" verdict). A synthetic average across postings would not be
+  grounded in any single real job and would conflict with the project's
+  no-fabrication principle. Resolved decision, not an open design
+  question - do not revisit without a real reason.
