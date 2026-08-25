@@ -211,6 +211,73 @@ def test_analyze_route_hides_internal_implementation_jargon(monkeypatch):
     assert "SKILL_CATALOG" not in body
 
 
+def test_analyze_route_connects_a_missing_skill_recommendation_to_its_career_family(
+    monkeypatch,
+):
+    """
+    Regression test for Milestone 1's one remaining gap: a missing-skill
+    recommendation must say which career family the job was classified
+    into (already computed by app.ai.career_tracks.classify_job_family
+    and already available to the template), not just show effort/
+    priority in isolation. Verifies the actual rendered HTML, not just
+    that the analysis dict carries the data.
+    """
+
+    jobs = [
+        make_ranked_job(
+            "https://example.test/jobs/1",
+            title="Cloud Security Engineer",
+            description=(
+                "Requirements: AWS, IAM, cloud security, infrastructure "
+                "as code required."
+            ),
+        )
+    ]
+    client = _client(monkeypatch, jobs)
+
+    client.get("/")
+    response = client.get("/analyze/0")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "This role is classified as Cloud Security" in body
+    assert "closing this gap directly supports that track." in body
+
+
+def test_analyze_route_omits_the_career_family_sentence_when_no_family_applies(
+    monkeypatch,
+):
+    """
+    Negative-case counterpart to the test above: when
+    classify_job_family() finds no primary family for a posting (e.g.
+    it's unrelated to every catalog track), the career-family sentence
+    must not appear anywhere on the page - no fake/default family
+    invented, and the route must still render normally (200, no
+    exception). Protects the "gracefully do nothing if no career
+    family is available" requirement.
+    """
+
+    jobs = [
+        make_ranked_job(
+            "https://example.test/jobs/1",
+            title="Front Desk Coordinator",
+            description=(
+                "Answer phones and greet visitors, manage the front "
+                "desk calendar."
+            ),
+        )
+    ]
+    client = _client(monkeypatch, jobs)
+
+    client.get("/")
+    response = client.get("/analyze/0")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "This role is classified as" not in body
+    assert "closing this gap directly supports that track." not in body
+
+
 def test_analyze_route_returns_404_for_unknown_job_id(monkeypatch):
     jobs = [make_ranked_job("https://example.test/jobs/1")]
     client = _client(monkeypatch, jobs)

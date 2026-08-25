@@ -510,6 +510,13 @@
               </p>
             {% endif %}
 
+            {% if job_family and job_family.primary %}
+              <p class="sg-rec-meta">
+                This role is classified as {{ job_family.primary.display }} -
+                closing this gap directly supports that track.
+              </p>
+            {% endif %}
+
             {% if item.recommendation.projects %}
               <a class="sg-start-project" href="/projects/start/{{ job.id }}/{{ item.key }}">
                 Start this project
@@ -587,6 +594,13 @@
                 </div>
               {% endif %}
             </div>
+
+            {% if job_family and job_family.primary %}
+              <p class="sg-rec-meta">
+                This role is classified as {{ job_family.primary.display }} -
+                closing this gap directly supports that track.
+              </p>
+            {% endif %}
 
             {% if item.recommendation.projects %}
               <a class="sg-start-project" href="/projects/start/{{ job.id }}/{{ item.key }}">
