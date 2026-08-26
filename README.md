@@ -335,3 +335,13 @@ automatically writes to `profiles/profile.json`.
 
 See [docs/PORTFOLIO.md](docs/PORTFOLIO.md) for the engineering skills this
 project demonstrates and how to talk about it in an interview.
+
+## Git Workflow & Engineering Practice
+
+CareerPilot AI is developed using Git with `v2-development` as the active development branch alongside `main`. Work is organized into focused commits so that individual changes can be reviewed, tested, and tracked through the project history.
+
+The repository contains a substantial commit history with descriptive commit messages covering feature development, refactoring, testing, documentation, and bug fixes. The `v2-development` branch is also pushed to the remote repository, providing a clear record of ongoing development.
+
+A recent example is commit `e7f217f` (`Improve ProjectCoach timeout and evidence planning`). The issue was reproduced through direct testing, traced through the Ollama, `LocalLLM`, `ProjectCoach`, and Flask layers, fixed with a feature-specific timeout change, and verified with the full test suite before the change was committed and pushed.
+
+This workflow demonstrates practical use of Git for branch-based development, incremental changes, debugging, testing, documentation, and remote repository management.
